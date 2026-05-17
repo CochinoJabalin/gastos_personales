@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#00285d",
+                    "on-secondary": "#233143",
+                    "tertiary-fixed-dim": "#ffb786",
+                    "on-primary-fixed": "#001a42",
+                    "secondary-fixed-dim": "#b9c8de",
+                    "primary-container": "#4d8eff",
+                    "inverse-primary": "#005ac2",
+                    "on-tertiary-fixed": "#311400",
+                    "inverse-surface": "#e1e2ec",
+                    "tertiary-fixed": "#ffdcc6",
+                    "surface-container-highest": "#32353c",
+                    "error": "#ffb4ab",
+                    "surface-dim": "#10131a",
+                    "surface-container-high": "#272a31",
+                    "on-secondary-container": "#a7b6cc",
+                    "on-error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#39485a",
+                    "surface-container": "#1d2027",
+                    "surface-tint": "#adc6ff",
+                    "surface-bright": "#363941",
+                    "surface-container-low": "#191b23",
+                    "tertiary-container": "#df7412",
+                    "secondary": "#b9c8de",
+                    "inverse-on-surface": "#2e3038",
+                    "on-secondary-fixed": "#0d1c2d",
+                    "surface-variant": "#32353c",
+                    "on-background": "#e1e2ec",
+                    "on-surface-variant": "#c2c6d6",
+                    "primary-fixed": "#d8e2ff",
+                    "primary-fixed-dim": "#adc6ff",
+                    "primary": "#adc6ff",
+                    "surface": "#10131a",
+                    "on-primary-fixed-variant": "#004395",
+                    "secondary-fixed": "#d4e4fa",
+                    "on-tertiary-fixed-variant": "#723600",
+                    "surface-container-lowest": "#0b0e15",
+                    "on-primary": "#002e6a",
+                    "on-error": "#690005",
+                    "secondary-container": "#39485a",
+                    "tertiary": "#ffb786",
+                    "on-tertiary": "#502400",
+                    "background": "#10131a",
+                    "error-container": "#93000a",
+                    "outline": "#8c909f",
+                    "on-surface": "#e1e2ec",
+                    "on-tertiary-container": "#461f00",
+                    "outline-variant": "#424754"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "xl": "24px",
+                    "sm": "8px",
+                    "md": "12px",
+                    "lg": "16px",
+                    "gutter": "12px",
+                    "xs": "4px",
+                    "container-margin": "16px"
+            },
+            "fontFamily": {
+                    "body-md": ["Geist"],
+                    "display-lg": ["Geist"],
+                    "data-mono": ["Geist"],
+                    "label-caps": ["Geist"],
+                    "body-sm": ["Geist"],
+                    "headline-md": ["Geist"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                    "body-sm": ["13px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #10131a;
+      }
+      /* Hide scrollbar for clean high-speed UI */
+      ::-webkit-scrollbar { display: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface bg-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-margin h-14 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-surface-container-highest">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim" data-icon="menu">menu</span>
+<h1 class="font-headline-md text-headline-md font-semibold text-primary dark:text-primary-fixed-dim">APP_NAME_WEALTH_MANAGER</h1>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="USR_PROFILE_IMAGE" class="w-full h-full object-cover" data-alt="A professional headshot of a financial advisor in a high-tech corporate office environment. The lighting is crisp and cool-toned, echoing a modern dark-mode interface with subtle blue backlighting. The subject exudes confidence and stability, wearing minimalist professional attire. The overall aesthetic is clean, sharp, and data-centric." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxMWe_H4ZzrogFQhxynVSe5LjIeHYT2y3sgWvr0xWoiXBuRWJTuus227EN1K8cv3K7A1GyJkCtNdCHdNP94zqI38BJd4Vl1Yd4gNvS24ddMaJOFrO1zMX4wWsXBdMnEwNFHjb-7t8JtlOyYDQiG59ieNNu1Nf1E673UUVFpRFVkL9Ikw9eXpyAJGq4angilqgpjHbXA7pG-JV7Re6d5t7QGf3Q9BwG8wVvZPlvgx0CbOWwU1B81dKBQtYt91waCPdpHyiFIvSXHC8y"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-14 pb-16 px-container-margin">
+<div class="max-w-md mx-auto py-lg space-y-lg">
+<!-- Quick Entry Card -->
+<div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-none">
+<div class="p-lg space-y-lg">
+<!-- Amount Input Section -->
+<div class="space-y-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">LBL_AMOUNT</label>
+<div class="relative flex items-center bg-surface-container-lowest rounded-lg border border-outline-variant focus-within:border-primary transition-colors duration-200">
+<span class="pl-md font-headline-md text-headline-md text-on-surface-variant">$</span>
+<input class="w-full bg-transparent border-none focus:ring-0 font-display-lg text-display-lg py-md text-primary" placeholder="0.00" type="number"/>
+</div>
+</div>
+<!-- Concept Input Section -->
+<div class="space-y-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">LBL_CONCEPT</label>
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant focus-within:border-primary transition-colors duration-200">
+<input class="w-full bg-transparent border-none focus:ring-0 font-body-md text-body-md py-md px-md text-on-surface" placeholder="i18n.transaction.description_hint" type="text"/>
+</div>
+</div>
+<!-- Smart Pre-fills -->
+<div class="grid grid-cols-2 gap-gutter">
+<!-- Bank Selector -->
+<div class="space-y-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">LBL_BANK_SELECT</label>
+<button class="w-full flex items-center justify-between px-md py-md bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors active:opacity-80">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="account_balance">account_balance</span>
+<span class="font-body-md text-body-md truncate">CITI_MAIN</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+<!-- Category Selector -->
+<div class="space-y-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">LBL_CATEGORY_SELECT</label>
+<button class="w-full flex items-center justify-between px-md py-md bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors active:opacity-80">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-tertiary text-[20px]" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-body-md text-body-md truncate">EXP_FOOD</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Smart Indicators (Predictions) -->
+<div class="flex flex-wrap gap-sm pt-xs">
+<div class="flex items-center gap-xs px-sm py-[2px] bg-primary-container/10 border border-primary-container/20 rounded-full">
+<span class="material-symbols-outlined text-[12px] text-primary" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-label-caps text-label-caps text-primary">SMART_PREFILL_ACTIVE</span>
+</div>
+<div class="flex items-center gap-xs px-sm py-[2px] bg-tertiary-container/10 border border-tertiary-container/20 rounded-full">
+<span class="font-label-caps text-label-caps text-tertiary">FREQ_TRANSACTION_RECURRING</span>
+</div>
+</div>
+<!-- CTA Button -->
+<button class="w-full bg-primary text-on-primary font-body-md text-body-md font-semibold py-md rounded-lg active:scale-95 transition-transform duration-200 shadow-lg shadow-primary/20">
+                        i18n.action.SUBMIT_TRANSACTION
+                    </button>
+</div>
+</div>
+<!-- Contextual Stats Widget -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="bg-surface-container p-md rounded-xl border border-outline-variant">
+<p class="font-label-caps text-label-caps text-on-surface-variant">LBL_DAILY_LIMIT</p>
+<div class="flex items-end justify-between mt-sm">
+<span class="font-data-mono text-data-mono text-on-surface">$2,400.00</span>
+<span class="font-label-caps text-[10px] text-error">84% USED</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full mt-xs overflow-hidden">
+<div class="h-full bg-error w-[84%]"></div>
+</div>
+</div>
+<div class="bg-surface-container p-md rounded-xl border border-outline-variant">
+<p class="font-label-caps text-label-caps text-on-surface-variant">LBL_MONTHLY_EST</p>
+<div class="flex items-end justify-between mt-sm">
+<span class="font-data-mono text-data-mono text-on-surface">$12,850</span>
+<span class="font-label-caps text-[10px] text-primary">ON_TRACK</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full mt-xs overflow-hidden">
+<div class="h-full bg-primary w-[45%]"></div>
+</div>
+</div>
+</div>
+<!-- Recent Suggestions Bento -->
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-lg">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-md">LBL_QUICK_SUGGESTIONS</h3>
+<div class="space-y-sm">
+<div class="flex items-center justify-between p-sm bg-surface-container-highest/50 rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container text-[18px]" data-icon="coffee">coffee</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-semibold">Morning Coffee</p>
+<p class="font-label-caps text-[10px] text-on-surface-variant">PREFILL_CITI_MAIN</p>
+</div>
+</div>
+<span class="font-data-mono text-data-mono">$4.50</span>
+</div>
+<div class="flex items-center justify-between p-sm bg-surface-container-highest/50 rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-container text-[18px]" data-icon="commute">commute</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-semibold">Weekly Transit</p>
+<p class="font-label-caps text-[10px] text-on-surface-variant">PREFILL_AMEX_CORP</p>
+</div>
+</div>
+<span class="font-data-mono text-data-mono">$32.00</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe px-2 bg-surface-container dark:bg-surface-container-low border-t border-outline-variant dark:border-surface-container-highest">
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95 hover:text-primary">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_DASHBOARD</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95 hover:text-primary">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_MATRIX</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="add_circle" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_QUICK_ENTRY</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95 hover:text-primary">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_SETTINGS</span>
+</div>
+</nav>
+</body></html>

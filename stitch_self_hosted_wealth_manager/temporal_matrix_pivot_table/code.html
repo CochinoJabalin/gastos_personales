@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#00285d",
+                        "on-secondary": "#233143",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-primary-fixed": "#001a42",
+                        "secondary-fixed-dim": "#b9c8de",
+                        "primary-container": "#4d8eff",
+                        "inverse-primary": "#005ac2",
+                        "on-tertiary-fixed": "#311400",
+                        "inverse-surface": "#e1e2ec",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-highest": "#32353c",
+                        "error": "#ffb4ab",
+                        "surface-dim": "#10131a",
+                        "surface-container-high": "#272a31",
+                        "on-secondary-container": "#a7b6cc",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#39485a",
+                        "surface-container": "#1d2027",
+                        "surface-tint": "#adc6ff",
+                        "surface-bright": "#363941",
+                        "surface-container-low": "#191b23",
+                        "tertiary-container": "#df7412",
+                        "secondary": "#b9c8de",
+                        "inverse-on-surface": "#2e3038",
+                        "on-secondary-fixed": "#0d1c2d",
+                        "surface-variant": "#32353c",
+                        "on-background": "#e1e2ec",
+                        "on-surface-variant": "#c2c6d6",
+                        "primary-fixed": "#d8e2ff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "primary": "#adc6ff",
+                        "surface": "#10131a",
+                        "on-primary-fixed-variant": "#004395",
+                        "secondary-fixed": "#d4e4fa",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "surface-container-lowest": "#0b0e15",
+                        "on-primary": "#002e6a",
+                        "on-error": "#690005",
+                        "secondary-container": "#39485a",
+                        "tertiary": "#ffb786",
+                        "on-tertiary": "#502400",
+                        "background": "#10131a",
+                        "error-container": "#93000a",
+                        "outline": "#8c909f",
+                        "on-surface": "#e1e2ec",
+                        "on-tertiary-container": "#461f00",
+                        "outline-variant": "#424754"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "xl": "24px",
+                        "sm": "8px",
+                        "md": "12px",
+                        "lg": "16px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "container-margin": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "data-mono": ["Geist"],
+                        "label-caps": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "headline-md": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-sm": ["13px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-margin h-14 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-surface-container-highest">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim cursor-pointer transition-colors duration-200 active:opacity-80">menu</span>
+<h1 class="font-headline-md text-headline-md font-semibold text-primary dark:text-primary-fixed-dim">APP_NAME_WEALTH_MANAGER</h1>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant transition-colors duration-200 active:opacity-80">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A professional high-contrast headshot of a corporate executive in a dark environment with moody blue rim lighting. The style is sharp and digital, fitting a high-end financial application's profile section. The lighting emphasizes clean lines and a modern, high-tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmSzs0oGyA0yRcjjR5xC4ckNoSg0iYIUqTPL1AXmw7EWaT5fA5QSslLnd1Epu_I7GGPEPfSC168NVXtOKCgzJpaGjwlt1YbdJaikG1rjbHCkh3knaqy7N10ZfxfSRZwKYmAczZATPo4DhF6ukLiPdwvkM06Wnyx9nssdQr8Zwm_d_eytntJWXtscWIrSqGbPv2VQh6ZdgrHScLnCfL_lKP7-VC5i2_jgtNc7592l_3X2xSvJMgtahV0_ZOw4sJH4KZp1wDj0jQVxvh"/>
+</div>
+</header>
+<main class="pt-14 pb-16 px-container-margin">
+<!-- Header & View Selector -->
+<section class="py-lg flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">matrix.temporal_analysis.title</h2>
+<p class="text-on-surface-variant font-body-sm text-body-sm">matrix.analysis.status_ready</p>
+</div>
+<!-- Toggle Selector -->
+<div class="flex p-xs bg-surface-container-low rounded-xl border border-outline-variant">
+<button class="px-lg py-sm rounded-lg bg-secondary-container text-on-secondary-container font-semibold transition-all duration-200 flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+<span class="font-label-caps text-label-caps">LBL_VIEW_TABLE</span>
+</button>
+<button class="px-lg py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">show_chart</span>
+<span class="font-label-caps text-label-caps">LBL_VIEW_CHART</span>
+</button>
+</div>
+</section>
+<!-- Bento Grid Analysis Summary -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-gutter mb-xl">
+<div class="col-span-1 md:col-span-2 p-lg bg-surface-container border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">LBL_ANALYTICS.NET_SAVINGS</span>
+<span class="material-symbols-outlined text-primary">trending_up</span>
+</div>
+<div class="text-display-lg font-data-mono text-primary">$42,904.00</div>
+<div class="text-body-sm text-on-surface-variant mt-xs">+12.4% vs LBL_PREVIOUS_PERIOD</div>
+</div>
+<div class="p-lg bg-surface-container border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">LBL_ANALYTICS.BURN_RATE</span>
+<span class="material-symbols-outlined text-tertiary">warning</span>
+</div>
+<div class="text-headline-md font-data-mono text-tertiary">$8,410.22</div>
+<div class="text-body-sm text-on-surface-variant mt-xs">LBL_STATUS.CRITICAL_ALERT</div>
+</div>
+<div class="p-lg bg-surface-container border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">LBL_ANALYTICS.EFFICIENCY</span>
+</div>
+<div class="text-headline-md font-data-mono text-on-surface">94.2%</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full mt-md overflow-hidden">
+<div class="bg-primary h-full w-[94.2%]"></div>
+</div>
+</div>
+</section>
+<!-- Temporal Matrix Table -->
+<section class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden mb-xl">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-md text-headline-md text-on-surface">matrix.temporal_matrix.data_grid</h3>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">filter_list</span>
+</div>
+<div class="overflow-x-auto no-scrollbar">
+<table class="w-full text-left border-collapse min-w-[1200px]">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant">
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant sticky left-0 bg-surface-container-high z-10">CATEGORY_ID</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_JAN</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_FEB</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_MAR</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_APR</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_MAY</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_JUN</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_JUL</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_AUG</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_SEP</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_OCT</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_NOV</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">MONTH_DEC</th>
+<th class="p-md font-label-caps text-label-caps text-on-primary bg-primary-container">LBL_TOTAL</th>
+</tr>
+</thead>
+<tbody class="font-data-mono text-body-sm">
+<!-- Row 1: Positive (Savings) -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+<td class="p-md font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">LBL_TRANSACTIONS.INCOME</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">13,100.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">15,000.00</td>
+<td class="p-md text-primary">12,400.00</td>
+<td class="p-md text-primary">18,200.00</td>
+<td class="p-md font-bold bg-primary-container text-on-primary-container">157,900.00</td>
+</tr>
+<!-- Row 2: Critical Spending (Yellow Alert) -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+<td class="p-md font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">LBL_TRANSACTIONS.FIXED_EXP</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md bg-tertiary text-on-tertiary font-bold">8,900.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md bg-tertiary text-on-tertiary font-bold">9,100.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md">4,200.00</td>
+<td class="p-md font-bold bg-primary-container/20">60,300.00</td>
+</tr>
+<!-- Row 3: Variable (Normal) -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+<td class="p-md font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">LBL_TRANSACTIONS.VARIABLE</td>
+<td class="p-md">2,100.00</td>
+<td class="p-md">1,850.00</td>
+<td class="p-md">2,300.00</td>
+<td class="p-md">2,050.00</td>
+<td class="p-md">2,100.00</td>
+<td class="p-md text-tertiary font-bold">4,500.00</td>
+<td class="p-md">2,200.00</td>
+<td class="p-md">2,100.00</td>
+<td class="p-md">2,400.00</td>
+<td class="p-md">2,100.00</td>
+<td class="p-md">2,100.00</td>
+<td class="p-md">3,900.00</td>
+<td class="p-md font-bold bg-primary-container/20">29,700.00</td>
+</tr>
+<!-- Row 4: Net (Calculated) -->
+<tr class="border-b border-outline-variant bg-surface-container-low font-bold">
+<td class="p-md text-on-surface sticky left-0 bg-surface-container-low z-10 border-r border-outline-variant">LBL_ANALYTICS.MONTHLY_NET</td>
+<td class="p-md text-primary">6,100.00</td>
+<td class="p-md text-primary">6,350.00</td>
+<td class="p-md text-tertiary">1,900.00</td>
+<td class="p-md text-primary">6,150.00</td>
+<td class="p-md text-primary">6,100.00</td>
+<td class="p-md text-primary">5,700.00</td>
+<td class="p-md text-primary">6,000.00</td>
+<td class="p-md text-primary">6,100.00</td>
+<td class="p-md text-tertiary">900.00</td>
+<td class="p-md text-primary">8,700.00</td>
+<td class="p-md text-primary">6,100.00</td>
+<td class="p-md text-primary">10,100.00</td>
+<td class="p-md font-extrabold bg-primary-container text-on-primary-container">67,900.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-md bg-surface-container-low flex items-center justify-center gap-md">
+<button class="p-sm text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<span class="font-label-caps text-label-caps">LBL_PAGE_INDICATOR 1 / 4</span>
+<button class="p-sm text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- Insights / Protocols Section -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-8">
+<div class="lg:col-span-2 p-lg bg-surface-container border border-outline-variant rounded-xl flex flex-col justify-between">
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface mb-sm">LBL_PROTOCOLS.SECURITY_ADVISORY</h4>
+<p class="text-on-surface-variant font-body-md text-body-md mb-lg">LBL_DATA_SOVEREIGNTY_ACTIVE: matrix.analysis.optimization_protocol_active</p>
+</div>
+<div class="flex flex-wrap gap-sm">
+<span class="px-md py-xs bg-primary/10 text-primary border border-primary/20 rounded-full font-label-caps text-label-caps">LBL_STATUS.STABLE</span>
+<span class="px-md py-xs bg-tertiary/10 text-tertiary border border-tertiary/20 rounded-full font-label-caps text-label-caps">LBL_STATUS.REBALANCING_REQUIRED</span>
+</div>
+</div>
+<div class="p-lg bg-surface-container-highest border border-outline-variant rounded-xl flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-[48px] text-primary mb-md" style="font-variation-settings: 'FILL' 1;">terminal</span>
+<h4 class="font-headline-md text-headline-md text-on-surface">LBL_PROTOCOLS.EXECUTION_LAYER</h4>
+<button class="mt-lg w-full py-md bg-primary text-on-primary font-semibold rounded-lg transition-colors active:opacity-80">
+                    LBL_QUICK_ENTRY.ADD_COMMAND
+                </button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe px-2 bg-surface-container dark:bg-surface-container-low border-t border-outline-variant dark:border-surface-container-highest">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps">NAV_DASHBOARD</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+<span class="font-label-caps text-label-caps">NAV_MATRIX</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-caps text-label-caps">NAV_QUICK_ENTRY</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim transition-all duration-200 active:scale-95" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps">NAV_SETTINGS</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Bank {
+  id            String         @id @default(uuid())
+  bank_name     String
+  account_label String
+  iban          String?
+  created_at    DateTime       @default(now())
+  transactions  Transaction[]
+  mappingRules  MappingRule[]
+}
+
+model Transaction {
+  id               String    @id @default(uuid())
+  timestamp        DateTime  @default(now())
+  concept          String
+  amount           Float
+  bank_id          String
+  bank             Bank      @relation(fields: [bank_id], references: [id])
+  group            String
+  type             String
+  is_recurring     Boolean   @default(false)
+  recurring_period String?
+  comentarios      String?
+}
+
+model MappingRule {
+  id              String @id @default(uuid())
+  pattern         String
+  default_bank_id String?
+  default_bank    Bank?   @relation(fields: [default_bank_id], references: [id])
+  default_group   String
+  default_type    String
+}

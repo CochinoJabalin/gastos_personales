@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Geist', sans-serif;
+            background-color: #10131a;
+            color: #e1e2ec;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-container": "#00285d",
+                      "on-secondary": "#233143",
+                      "tertiary-fixed-dim": "#ffb786",
+                      "on-primary-fixed": "#001a42",
+                      "secondary-fixed-dim": "#b9c8de",
+                      "primary-container": "#4d8eff",
+                      "inverse-primary": "#005ac2",
+                      "on-tertiary-fixed": "#311400",
+                      "inverse-surface": "#e1e2ec",
+                      "tertiary-fixed": "#ffdcc6",
+                      "surface-container-highest": "#32353c",
+                      "error": "#ffb4ab",
+                      "surface-dim": "#10131a",
+                      "surface-container-high": "#272a31",
+                      "on-secondary-container": "#a7b6cc",
+                      "on-error-container": "#ffdad6",
+                      "on-secondary-fixed-variant": "#39485a",
+                      "surface-container": "#1d2027",
+                      "surface-tint": "#adc6ff",
+                      "surface-bright": "#363941",
+                      "surface-container-low": "#191b23",
+                      "tertiary-container": "#df7412",
+                      "secondary": "#b9c8de",
+                      "inverse-on-surface": "#2e3038",
+                      "on-secondary-fixed": "#0d1c2d",
+                      "surface-variant": "#32353c",
+                      "on-background": "#e1e2ec",
+                      "on-surface-variant": "#c2c6d6",
+                      "primary-fixed": "#d8e2ff",
+                      "primary-fixed-dim": "#adc6ff",
+                      "primary": "#adc6ff",
+                      "surface": "#10131a",
+                      "on-primary-fixed-variant": "#004395",
+                      "secondary-fixed": "#d4e4fa",
+                      "on-tertiary-fixed-variant": "#723600",
+                      "surface-container-lowest": "#0b0e15",
+                      "on-primary": "#002e6a",
+                      "on-error": "#690005",
+                      "secondary-container": "#39485a",
+                      "tertiary": "#ffb786",
+                      "on-tertiary": "#502400",
+                      "background": "#10131a",
+                      "error-container": "#93000a",
+                      "outline": "#8c909f",
+                      "on-surface": "#e1e2ec",
+                      "on-tertiary-container": "#461f00",
+                      "outline-variant": "#424754"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "base": "4px",
+                      "xl": "24px",
+                      "sm": "8px",
+                      "md": "12px",
+                      "lg": "16px",
+                      "gutter": "12px",
+                      "xs": "4px",
+                      "container-margin": "16px"
+              },
+              "fontFamily": {
+                      "body-md": ["Geist"],
+                      "display-lg": ["Geist"],
+                      "data-mono": ["Geist"],
+                      "label-caps": ["Geist"],
+                      "body-sm": ["Geist"],
+                      "headline-md": ["Geist"]
+              },
+              "fontSize": {
+                      "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                      "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "data-mono": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                      "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "body-sm": ["13px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-margin h-14 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim cursor-pointer hover:bg-surface-container-high dark:hover:bg-surface-container-highest p-2 rounded-full transition-colors duration-200 active:opacity-80">menu</span>
+<h1 class="font-headline-md text-headline-md font-semibold text-primary dark:text-primary-fixed-dim">APP_NAME_WEALTH_MANAGER</h1>
+</div>
+<div class="flex items-center">
+<img alt="USR_AVATAR" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNC4fL2WFuLfJekrpykWh-6MqiTgGJ9Lh19sZqlBO13qX2Q8ccbszlcsJOPc_1zUqtYuQqcSzr-pdXZgMp33hFJz-q8PqdeIPQMu2jm01y-TpSgML3hdc_CG9UJdvQpuAVoasIt3xmarIUo9P8-p75KpZ4nqMXPYMuycaWzyh5S6LOn7Y_PyqDcIFHUKh83RDoRbuz0mLFKHvEntUQKx-IgjH3rFYc2OyLhIRhe3zH9H3G26d_VrCCrilEvOGsFi52OuckT0tC0Hn0"/>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-20 pb-24 px-container-margin max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Server Status Card (Bento style 4-col) -->
+<section class="md:col-span-4 bg-surface-container dark:bg-surface-container-low border border-outline-variant p-lg rounded-xl flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<span class="font-label-caps text-label-caps text-on-surface-variant">SYS.INFRA.STATUS</span>
+<span class="material-symbols-outlined text-primary" data-icon="dns">dns</span>
+</div>
+<div class="mt-auto">
+<h2 class="font-headline-md text-headline-md text-on-surface">LBL_SERVER_STATUS_ACTIVE</h2>
+<div class="flex items-center gap-sm mt-xs">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">LBL_LATENCY_STABLE</span>
+</div>
+</div>
+</section>
+<!-- Security Protocol Card (Bento style 4-col) -->
+<section class="md:col-span-4 bg-surface-container dark:bg-surface-container-low border border-outline-variant p-lg rounded-xl flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<span class="font-label-caps text-label-caps text-on-surface-variant">SYS.SEC.POLICY</span>
+<span class="material-symbols-outlined text-primary" data-icon="shield">shield</span>
+</div>
+<div class="mt-auto">
+<h2 class="font-body-md text-body-md font-semibold text-on-surface">LBL_ZERO_LOCAL_STORAGE_ENFORCED</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">LBL_DATA_SOVEREIGNTY_ACTIVE</p>
+</div>
+</section>
+<!-- Analytics Quick View (Bento style 4-col) -->
+<section class="md:col-span-4 bg-surface-container-high dark:bg-surface-container-high border border-outline-variant p-lg rounded-xl flex items-center justify-between">
+<div class="flex flex-col gap-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant">LBL_VERSION_STABLE</span>
+<span class="font-data-mono text-data-mono text-primary">v2.4.0-PROD</span>
+</div>
+<div class="w-12 h-12 bg-primary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="update">update</span>
+</div>
+</section>
+<!-- i18n Dictionary Preview (Bento style 8-col) -->
+<section class="md:col-span-8 bg-surface-container dark:bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">LBL_I18N_DICTIONARY</h3>
+<span class="font-label-caps text-label-caps text-primary cursor-pointer hover:underline">LBL_VIEW_ALL_KEYS</span>
+</div>
+<div class="p-md">
+<table class="w-full text-left font-data-mono text-data-mono">
+<thead>
+<tr class="text-on-surface-variant border-b border-outline-variant">
+<th class="py-sm font-label-caps">LBL_KEY_TOKEN</th>
+<th class="py-sm font-label-caps">LBL_MAPPED_STRING</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr>
+<td class="py-md text-primary">portfolio.summary.total_balance</td>
+<td class="py-md text-on-surface">Total Assets Value</td>
+</tr>
+<tr>
+<td class="py-md text-primary">savings.goal.reached_message</td>
+<td class="py-md text-on-surface">Goal achieved at {percentage}%</td>
+</tr>
+<tr>
+<td class="py-md text-primary">auth.login.secure_access</td>
+<td class="py-md text-on-surface">Secure Biometric Entry</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Dark Mode Configuration (Bento style 4-col) -->
+<section class="md:col-span-4 bg-surface-container dark:bg-surface-container-low border border-outline-variant p-lg rounded-xl flex flex-col gap-lg">
+<h3 class="font-headline-md text-headline-md text-on-surface">LBL_THEME_ENGINE</h3>
+<div class="space-y-md">
+<div class="flex items-center justify-between p-md bg-secondary-container rounded-xl border border-outline-variant">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="dark_mode" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+<span class="font-body-md text-body-md font-semibold text-on-secondary-container">LBL_DARK_MODE</span>
+</div>
+<div class="w-10 h-5 bg-primary rounded-full relative">
+<div class="absolute right-1 top-1 w-3 h-3 bg-on-primary rounded-full"></div>
+</div>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-high rounded-xl border border-outline-variant opacity-60">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="light_mode">light_mode</span>
+<span class="font-body-md text-body-md text-on-surface-variant">LBL_LIGHT_MODE</span>
+</div>
+<div class="w-10 h-5 bg-outline-variant rounded-full relative">
+<div class="absolute left-1 top-1 w-3 h-3 bg-surface rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only Logic via md:hidden handled by style instruction if needed, here we use responsive classes) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe px-2 bg-surface-container dark:bg-surface-container-low border-t border-outline-variant dark:border-surface-container-highest">
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_DASHBOARD</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_MATRIX</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-secondary-container px-4 py-1 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_QUICK_ENTRY</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-label-caps text-label-caps mt-1">NAV_SETTINGS</span>
+</div>
+</nav>
+<!-- SideNav (Desktop Only Cluster) -->
+<aside class="hidden md:flex fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-64 bg-surface dark:bg-surface-dim border-r border-outline-variant flex-col p-md gap-sm">
+<div class="flex items-center gap-md p-md hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-xl cursor-pointer transition-all duration-200">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="analytics">analytics</span>
+<span class="font-body-md text-body-md text-on-surface-variant">LBL_ANALYTICS</span>
+</div>
+<div class="flex items-center gap-md p-md hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-xl cursor-pointer transition-all duration-200">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="receipt_long">receipt_long</span>
+<span class="font-body-md text-body-md text-on-surface-variant">LBL_TRANSACTIONS</span>
+</div>
+<div class="flex items-center gap-md p-md hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-xl cursor-pointer transition-all duration-200">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="account_balance">account_balance</span>
+<span class="font-body-md text-body-md text-on-surface-variant">LBL_ASSETS</span>
+</div>
+<div class="flex items-center gap-md p-md bg-secondary-container text-on-secondary-container font-semibold rounded-xl cursor-pointer transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-body-md text-body-md">NAV_SETTINGS</span>
+</div>
+<div class="mt-auto p-md border-t border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="shield">shield</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface">USR_IDENTITY_TOKEN</span>
+<span class="text-[10px] text-on-surface-variant uppercase">LBL_DATA_SOVEREIGNTY_ACTIVE</span>
+</div>
+</div>
+</div>
+</aside>
+</body></html>

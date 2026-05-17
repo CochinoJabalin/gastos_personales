@@ -1,0 +1,131 @@
+{
+  "app": {
+    "name": "Gestor Patrimonial",
+    "tagline": "Bienvenido a tu gestor de finanzas personales autoalojado"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "matrix": "Matriz",
+    "quick_entry": "Rápido",
+    "settings": "Ajustes"
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar sesión",
+      "username": "Usuario",
+      "password": "Contraseña",
+      "submit": "Iniciar sesión",
+      "error": "Credenciales inválidas"
+    }
+  },
+  "dashboard": {
+    "total_assets": "Activos Totales",
+    "overview": "Resumen",
+    "fixed": "Fijo",
+    "variable": "Variable",
+    "monthly_evolution": "Evolución Mensual",
+    "savings": "Ahorro",
+    "fixed_expense": "Gasto Fijo",
+    "variable_expense": "Gasto Variable",
+    "data_sovereignty": "Soberanía de Datos Activa",
+    "protocols": "Protocolos",
+    "security_scan": "Escaneo de Seguridad Activo",
+    "version_stable": "Versión Estable",
+    "analytics": "Analíticas",
+    "vs_previous_month": "vs mes anterior",
+    "net_savings": "Ahorro Neto",
+    "burn_rate": "Tasa de Gasto",
+    "efficiency": "Eficiencia",
+    "critical_alert": "Alerta Crítica",
+    "previous_period": "periodo anterior",
+    "income_month": "Ingresos del Mes",
+    "expenses_month": "Gastos del Mes",
+    "savings_rate": "Tasa de Ahorro",
+    "ytd_expenses": "Gasto Acumulado",
+    "top_categories": "Top Categorías",
+    "vs_last_month": "vs mes anterior",
+    "trend_3m": "Media 3 meses",
+    "of_total": "del total"
+  },
+  "matrix": {
+    "temporal_analysis": {
+      "title": "Matriz Temporal",
+      "status_ready": "Análisis anual listo"
+    },
+    "temporal_matrix": {
+      "data_grid": "Cuadrícula de Datos"
+    },
+    "analysis": {
+      "optimization_protocol_active": "Protocolo de optimización activo. Los datos están sincronizados."
+    },
+    "category": "Categoría",
+    "total": "Total",
+    "income": "Ingresos",
+    "fixed_exp": "Gastos Fijos",
+    "variable": "Gastos Variables",
+    "monthly_net": "Neto Mensual",
+    "page_indicator": "Página",
+    "view_table": "Tabla",
+    "view_chart": "Gráfico"
+  },
+  "quick_entry": {
+    "amount": "Importe",
+    "concept": "Concepto",
+    "description_hint": "Describe la transacción...",
+    "bank_select": "Banco",
+    "category_select": "Categoría",
+    "smart_prefill": "Auto-rellenado Activo",
+    "recurring": "Transacción Frecuente",
+    "submit": "Registrar Transacción",
+    "daily_limit": "Límite Diario",
+    "monthly_est": "Estimado Mensual",
+    "used": "USADO",
+    "on_track": "ENCAMINADO",
+    "quick_suggestions": "Sugerencias Rápidas",
+    "categories": {
+      "Ingresos": "Ingresos",
+      "Ocio": "Ocio",
+      "Compras": "Compras",
+      "JustEat": "JustEat",
+      "Streaming": "Streaming",
+      "Ropa": "Ropa",
+      "Hogar": "Hogar",
+      "Supermercado": "Supermercado",
+      "Transporte": "Transporte",
+      "Salud": "Salud",
+      "Educación": "Educación",
+      "Servicios": "Servicios"
+    },
+    "types": {
+      "Fijo": "Fijo",
+      "Variable": "Variable"
+    }
+  },
+  "settings": {
+    "infra_status": "Estado del Servidor",
+    "server_active": "Servidor Activo",
+    "latency_stable": "Latencia Estable",
+    "sec_policy": "Política de Seguridad",
+    "zero_local_storage": "Zero Local Storage",
+    "data_sovereignty": "Soberanía de Datos Activa",
+    "version": "Versión",
+    "i18n_dictionary": "Diccionario i18n",
+    "view_all_keys": "Ver todas las claves",
+    "key_token": "Clave",
+    "mapped_string": "Valor",
+    "theme_engine": "Motor de Tema",
+    "dark_mode": "Modo Oscuro",
+    "light_mode": "Modo Claro",
+    "mapping_rules": "Reglas de Mapeo",
+    "add_rule": "Añadir Regla",
+    "pattern": "Patrón",
+    "default_bank": "Banco por Defecto",
+    "default_group": "Grupo por Defecto",
+    "default_type": "Tipo por Defecto"
+  },
+  "transactions": {
+    "income": "Ingresos",
+    "fixed_exp": "Gastos Fijos",
+    "variable": "Gastos Variables"
+  }
+}

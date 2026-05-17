@@ -1,0 +1,62 @@
+"use client";
+
+import { SessionProvider } from "next-auth/react";
+import { useEffect, useState } from "react";
+import TopAppBar from "@/components/TopAppBar";
+import AuthGuard from "@/components/AuthGuard";
+import BankOnboarding from "@/components/BankOnboarding";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [hasBanks, setHasBanks] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  function checkBanks() {
+    setChecking(true);
+    fetch("/api/banks")
+      .then((r) => r.json())
+      .then((data) => {
+        setHasBanks(Array.isArray(data) && data.length > 0);
+      })
+      .catch(() => setHasBanks(false))
+      .finally(() => setChecking(false));
+  }
+
+  useEffect(() => {
+    checkBanks();
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="text-on-surface-variant text-body-md">Cargando...</div>
+      </div>
+    );
+  }
+
+  if (hasBanks === false) {
+    return (
+      <SessionProvider>
+        <AuthGuard>
+          <BankOnboarding onComplete={checkBanks} />
+        </AuthGuard>
+      </SessionProvider>
+    );
+  }
+
+  return (
+    <SessionProvider>
+      <AuthGuard>
+        <TopAppBar />
+        <main className="md:ml-56 pt-14 pb-20 md:pb-6 min-h-screen bg-surface">
+          <div className="max-w-7xl mx-auto px-container-margin py-4 space-y-4">
+            {children}
+          </div>
+        </main>
+      </AuthGuard>
+    </SessionProvider>
+  );
+}
