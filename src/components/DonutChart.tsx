@@ -9,6 +9,7 @@ interface DonutChartProps {
   centerLabel?: string;
   centerSubtext?: string;
   size?: number;
+  showValues?: boolean;
 }
 
 export default function DonutChart({
@@ -16,6 +17,7 @@ export default function DonutChart({
   centerLabel,
   centerSubtext,
   size = 192,
+  showValues = false,
 }: DonutChartProps) {
   const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
   const cx = 18;
@@ -72,15 +74,20 @@ export default function DonutChart({
           {centerSubtext || ""}
         </span>
       </div>
-      <div className="flex flex-wrap justify-center gap-md mt-sm">
+      <div className="flex flex-wrap justify-center gap-x-lg gap-y-xs mt-sm">
         {segments.map((seg, i) => (
           <div key={i} className="flex items-center gap-xs">
             <span
-              className="w-2 h-2 rounded-full"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: seg.color }}
             />
-            <span className="text-body-sm text-on-surface-variant">
+            <span className="text-body-sm text-on-surface-variant whitespace-nowrap">
               {seg.label}
+              {showValues && (
+                <span className="text-data-mono text-on-surface tabular-nums ml-xs">
+                  €{seg.value.toLocaleString("es")}
+                </span>
+              )}
             </span>
           </div>
         ))}

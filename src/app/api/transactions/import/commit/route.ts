@@ -69,5 +69,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Recalculate all bank balances after import
+  const banks = await prisma.bank.findMany();
+  for (const bank of banks) {
+    const agg = await prisma.transaction.aggregate({
+      where: { bank_id: bank.id },
+      _sum: { amount: true },
+    });
+    await prisma.bank.update({
+      where: { id: bank.id },
+      data: { balance: agg._sum.amount ?? 0 },
+    });
+  }
+
   return NextResponse.json({ created, replaced, errors });
 }

@@ -13,6 +13,7 @@ interface Transaction {
   is_recurring: boolean;
   timestamp: string;
   bank_id: string;
+  comentarios?: string | null;
   bank?: { id?: string; bank_name: string; account_label: string };
 }
 
@@ -33,10 +34,13 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ concept: "", amount: "", group: "", type: "", bank_id: "" });
+  const [editForm, setEditForm] = useState({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "" });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showFuture, setShowFuture] = useState(false);
+
+  const [years, setYears] = useState<string[]>([]);
 
   const [filters, setFilters] = useState({
     year: new Date().getFullYear().toString(),
@@ -48,28 +52,42 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetchBanks();
+    fetchYears();
   }, []);
 
   useEffect(() => {
     setPage(1);
-  }, [filters.year, filters.month, filters.concept, filters.group, filters.type]);
+  }, [filters.year, filters.month, filters.concept, filters.group, filters.type, showFuture]);
+
+  useEffect(() => {
+    if (years.length > 0 && !filters.year) {
+      setFilters(prev => ({ ...prev, year: years[years.length - 1] }));
+    }
+  }, [years]);
 
   useEffect(() => {
     fetchTransactions();
-  }, [page, filters]);
+  }, [page, filters, showFuture]);
 
   function fetchBanks() {
     fetch("/api/banks").then(r => r.json()).then(setBanks).catch(() => {});
   }
 
+  function fetchYears() {
+    fetch("/api/transactions/years").then(r => r.json()).then(data => {
+      setYears(data.years || []);
+    }).catch(() => {});
+  }
+
   function fetchTransactions() {
     setLoading(true);
-    const params = new URLSearchParams({ page: page.toString(), limit: "20" });
+    const params = new URLSearchParams({ page: page.toString(), limit: "100" });
     if (filters.year) params.set("year", filters.year);
     if (filters.month) params.set("month", filters.month);
     if (filters.concept) params.set("concept", filters.concept);
     if (filters.group) params.set("group", filters.group);
     if (filters.type) params.set("type", filters.type);
+    if (showFuture) params.set("future", "true");
     fetch(`/api/transactions?${params}`)
       .then(r => r.json())
       .then(data => {
@@ -92,12 +110,13 @@ export default function TransactionsPage() {
       group: t.group,
       type: t.type,
       bank_id: t.bank_id || t.bank?.id || "",
+      comentarios: t.comentarios || "",
     });
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditForm({ concept: "", amount: "", group: "", type: "", bank_id: "" });
+    setEditForm({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "" });
   }
 
   async function saveEdit(id: string) {
@@ -113,6 +132,7 @@ export default function TransactionsPage() {
         group: editForm.group,
         type: editForm.type,
         bank_id: editForm.bank_id,
+        comentarios: editForm.comentarios || null,
       }),
     });
     setEditingId(null);
@@ -125,16 +145,23 @@ export default function TransactionsPage() {
     fetchTransactions();
   }
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 11 }, (_, i) => (currentYear - 5 + i).toString());
-
   return (
     <div className="p-lg space-y-lg">
       <div className="flex justify-between items-center">
-        <h1 className="text-headline-md text-on-surface">Todas las Operaciones</h1>
-        <span className="text-body-sm text-on-surface-variant">
-          Página {page} de {totalPages}
-        </span>
+        <h1 className="text-headline-md text-on-surface">
+          {showFuture ? "Operaciones Futuras" : "Todas las Operaciones"}
+        </h1>
+        <div className="flex items-center gap-md">
+          <button
+            onClick={() => setShowFuture(!showFuture)}
+            className="px-lg py-md bg-tertiary-container text-on-tertiary-container rounded-lg text-body-sm"
+          >
+            {showFuture ? "Ver Operaciones Pasadas" : "Ver Operaciones Futuras"}
+          </button>
+          <span className="text-body-sm text-on-surface-variant">
+            Página {page} de {totalPages}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-sm items-end bg-surface-container border border-outline-variant rounded-xl p-md">
@@ -249,6 +276,14 @@ export default function TransactionsPage() {
                           />
                         </td>
                         <td className="p-md">
+                          <input
+                            value={editForm.comentarios}
+                            onChange={e => setEditForm({...editForm, comentarios: e.target.value})}
+                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
+                            placeholder="Notas..."
+                          />
+                        </td>
+                        <td className="p-md">
                           <select
                             value={editForm.bank_id}
                             onChange={e => setEditForm({...editForm, bank_id: e.target.value})}
@@ -313,7 +348,14 @@ export default function TransactionsPage() {
                         <td className="p-md text-on-surface-variant">
                           {new Date(t.timestamp).toLocaleDateString("es")}
                         </td>
-                        <td className="p-md text-on-surface font-medium">{t.concept}</td>
+                        <td className="p-md">
+                          <div className="text-on-surface font-medium">{t.concept}</div>
+                          {t.comentarios && (
+                            <div className="text-on-surface-variant text-body-sm mt-xs">
+                              {t.comentarios}
+                            </div>
+                          )}
+                        </td>
                         <td className="p-md text-on-surface-variant text-body-sm">
                           {t.bank?.bank_name || "-"}
                         </td>

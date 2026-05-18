@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatIBAN } from "@/lib/iban";
 
 interface BankOnboardingProps {
   onComplete: () => void;

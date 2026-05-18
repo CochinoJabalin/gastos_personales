@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import DonutChart from "@/components/DonutChart";
 import BarChart from "@/components/BarChart";
-import StatCard from "@/components/StatCard";
+import ValueBlur from "@/components/ValueBlur";
 import { t } from "@/lib/i18n";
+
+const stripPrefix = (s: string) => s.replace(/^gastos\s+/i, "");
 
 interface DashboardSummary {
   total_income: number;
@@ -34,31 +36,90 @@ interface GroupData {
   net: number;
 }
 
+interface GroupMonthly {
+  group: string;
+  type: string;
+  months: number[];
+  total: number;
+}
+
+interface Bank {
+  id: string;
+  bank_name: string;
+  account_label: string;
+  balance: number;
+}
+
 interface MatrixResponse {
   year: number;
   months: MonthData[];
   yearly: { income: number; expenses: number; fixed: number; variable: number; net: number };
   averages: { income: number; expenses: number; fixed: number; variable: number; net: number };
   groups: GroupData[];
+  groupsMonthly: GroupMonthly[];
+  prevYear: {
+    year: number;
+    averages: { income: number; expenses: number; fixed: number; variable: number; net: number };
+    yearly: { income: number; expenses: number; fixed: number; variable: number; net: number };
+  } | null;
 }
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [matrix, setMatrix] = useState<MatrixResponse | null>(null);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hideValues, setHideValues] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/dashboard/summary").then((r) => r.json()),
       fetch("/api/dashboard/matrix").then((r) => r.json()),
+      fetch("/api/banks").then((r) => r.json()),
     ])
-      .then(([s, m]) => {
+      .then(([s, m, b]) => {
         setSummary(s);
         setMatrix(m);
+        setBanks(b || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [catMonthlyData, setCatMonthlyData] = useState<number[] | null>(null);
+  const [catLoading, setCatLoading] = useState(false);
+
+  function openCategoryDetail(group: string) {
+    setSelectedCat(group);
+    setCatLoading(true);
+    setCatMonthlyData(null);
+    const currentYear = new Date().getFullYear();
+    Promise.all([
+      fetch(`/api/dashboard/matrix?year=${currentYear}`).then((r) => r.json()),
+      fetch(`/api/dashboard/matrix?year=${currentYear - 1}`).then((r) => r.json()),
+    ])
+      .then(([curr, prev]) => {
+        const currGroup = curr.groupsMonthly?.find(
+          (gm: GroupMonthly) => gm.group === group && gm.type === "expense"
+        );
+        const prevGroup = prev.groupsMonthly?.find(
+          (gm: GroupMonthly) => gm.group === group && gm.type === "expense"
+        );
+        const combined: number[] = [];
+        const now = new Date();
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthIndex = d.getMonth();
+          const year = d.getFullYear();
+          const source = year === currentYear ? currGroup : prevGroup;
+          combined.push(source ? source.months[monthIndex] || 0 : 0);
+        }
+        setCatMonthlyData(combined);
+      })
+      .catch(() => {})
+      .finally(() => setCatLoading(false));
+  }
 
   if (loading) {
     return (
@@ -100,9 +161,9 @@ export default function DashboardPage() {
   const monthsSoFar = currentMonth + 1;
 
   const donutSegments = [
-    { label: "Fijo", value: summary?.fixed_expenses || 4250, color: "#adc6ff" },
-    { label: "Variable", value: summary?.variable_expenses || 1890, color: "#ffb786" },
-    { label: "Ahorro", value: Math.max(summary?.net_savings || 6000, 0), color: "#39485a" },
+    { label: "Fijo", value: summary?.fixed_expenses || 0, color: "#adc6ff" },
+    { label: "Variable", value: summary?.variable_expenses || 0, color: "#ffb786" },
+    { label: "Ahorro", value: Math.max(summary?.net_savings || 0, 0), color: "#39485a" },
   ];
   const totalAssets = donutSegments.reduce((s, d) => s + d.value, 0);
 
@@ -113,28 +174,22 @@ export default function DashboardPage() {
       }))
     : [];
 
-  const movingAvg = matrix
-    ? matrix.months
-        .slice(0, monthsSoFar)
-        .map((_, i, arr) => {
-          if (i < 2) return null;
-          const avg = (arr[i - 2].expenses + arr[i - 1].expenses + arr[i].expenses) / 3;
-          return Math.round(avg * 100) / 100;
-        })
-        .filter((v): v is number => v !== null)
+  const netLine = matrix
+    ? matrix.months.slice(0, monthsSoFar).map((m) => m.net)
     : [];
 
   const currMonthData = matrix?.months[currentMonth];
   const prevMonthData = currentMonth > 0 ? matrix?.months[currentMonth - 1] : null;
 
-  const fixedChange =
-    prevMonthData && prevMonthData.fixed > 0
-      ? (((currMonthData?.fixed || 0) - prevMonthData.fixed) / prevMonthData.fixed) * 100
-      : null;
-  const variableChange =
-    prevMonthData && prevMonthData.variable > 0
-      ? (((currMonthData?.variable || 0) - prevMonthData.variable) / prevMonthData.variable) * 100
-      : null;
+  const incomeDelta = prevMonthData && currMonthData
+    ? Math.round((currMonthData.income - prevMonthData.income) * 100) / 100
+    : 0;
+  const expenseDelta = prevMonthData && currMonthData
+    ? Math.round((currMonthData.expenses - prevMonthData.expenses) * 100) / 100
+    : 0;
+  const netDelta = prevMonthData && currMonthData
+    ? Math.round((currMonthData.net - prevMonthData.net) * 100) / 100
+    : 0;
 
   const savingsRate = summary?.savings_rate || 0;
   const savingsPositive = savingsRate >= 15;
@@ -149,185 +204,434 @@ export default function DashboardPage() {
 
   const maxCatExpense = topCats.length > 0 ? topCats[0].expenses : 1;
 
+  const monthsAvailable = matrix?.months.filter((m) => m.income > 0 || m.expenses > 0).length || 1;
+  const yearProgress = Math.round((monthsSoFar / 12) * 100);
+
+  const totalBankBalance = banks.reduce((sum, b) => sum + b.balance, 0);
+
+  const monthsWithData = matrix?.months.filter((m) => m.income > 0 || m.expenses > 0) || [];
+  const positiveMonths = monthsWithData.filter((m) => m.net > 0).length;
+
+  const netMonths = matrix?.months.map((m) => m.net) || [];
+  const totalNet = netMonths.reduce((s, v) => s + v, 0);
+  const avgNet = monthsAvailable > 0 ? totalNet / monthsAvailable : 0;
+  const negMonths = netMonths.filter((v) => v < 0).length;
+
+  const healthRaw = Math.max(0, Math.min(100, 50 + savingsRate * 2 - negMonths * 5));
+  const healthScore = Math.round(healthRaw);
+  const healthColor = healthScore >= 70 ? "#10B981" : healthScore >= 40 ? "#F59E0B" : "#EF4444";
+  const healthLabel = healthScore >= 70 ? "Buena" : healthScore >= 40 ? "Regular" : "Crítica";
+
+  const avgMonthlyExpense = monthsSoFar > 0 ? totalExpensesYTD / monthsSoFar : 0;
+  const projectedOverspend = avgMonthlyExpense > 0
+    ? Math.round((avgMonthlyExpense * 12 - (matrix?.yearly.income || 0)) * 100) / 100
+    : 0;
+
+  const avgMonthlyFixed = matrix?.averages?.fixed || 0;
+  const avgMonthlyVariable = matrix?.averages?.variable || 0;
+
+  const fixedPct = avgMonthlyFixed > 0
+    ? Math.round(((currMonthData?.fixed || 0) / avgMonthlyFixed) * 100)
+    : 0;
+  const variablePct = avgMonthlyVariable > 0
+    ? Math.round(((currMonthData?.variable || 0) / avgMonthlyVariable) * 100)
+    : 0;
+
+  const variableDelta = prevMonthData && currMonthData
+    ? Math.round((currMonthData.variable - prevMonthData.variable) * 100) / 100
+    : 0;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-      {/* Row 1: StatCards */}
-      <div className="md:col-span-3">
-        <StatCard
-          label={t("dashboard.income_month")}
-          value={`€${(summary?.current_month_income || 0).toLocaleString("es")}`}
-          icon="account_balance"
-          iconBg="bg-primary-container"
-        />
-      </div>
-      <div className="md:col-span-3">
-        <StatCard
-          label={t("dashboard.expenses_month")}
-          value={`€${(summary?.current_month_expenses || 0).toLocaleString("es")}`}
-          icon="shopping_cart"
-          iconBg="bg-tertiary-container"
-        />
-      </div>
-      <div className="md:col-span-3">
-        <StatCard
-          label={t("dashboard.savings_rate")}
-          value={`${savingsRate.toFixed(1)}%`}
-          trend={
-            summary
-              ? `€${(summary?.net_savings || 0).toLocaleString("es")} ${t("dashboard.net_savings").toLowerCase()}`
-              : ""
-          }
-          positive={savingsPositive}
-          critical={savingsCritical}
-          icon="savings"
-          iconBg={savingsPositive ? "bg-positive/10" : "bg-critical/10"}
-        />
-      </div>
-      <div className="md:col-span-3">
-        <StatCard
-          label={t("dashboard.ytd_expenses")}
-          value={`€${totalExpensesYTD.toLocaleString("es")}`}
-          icon="receipt_long"
-          iconBg="bg-secondary-container"
-        />
+    <div className="flex flex-col space-y-gutter">
+      <div className="flex items-center justify-end">
+        <button
+          onClick={() => setHideValues(!hideValues)}
+          className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
+            hideValues
+              ? "bg-primary text-primary-on"
+              : "bg-surface-dim text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">
+            {hideValues ? "visibility_off" : "visibility"}
+          </span>
+          Ocultar cifras
+        </button>
       </div>
 
-      {/* Row 2: Donut + BarChart real */}
-      <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
-        <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
-          {t("dashboard.total_assets")}
-        </h2>
-        <DonutChart
-          segments={donutSegments}
-          centerLabel={`€${(totalAssets / 1000).toFixed(1)}K`}
-          centerSubtext={t("dashboard.overview")}
-          size={192}
-        />
-      </section>
+      {/* Row 1: Balance Total + Tasa de Ahorro + Salud Financiera + vs Mes Anterior + Resumen Anual */}
+      <div className={`grid grid-cols-1 md:grid-cols-12 gap-gutter ${hideValues ? "hide-cifras" : ""}`}>
+        {/* Balance Total (compacto) */}
+        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+              <span className="material-symbols-outlined text-sm text-on-primary-container">account_balance</span>
+            </div>
+            <div>
+              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Balance Total</p>
+              <p className={`text-headline-sm font-mono ${totalBankBalance >= 0 ? "text-success" : "text-error"}`}>
+                <ValueBlur hidden={hideValues}>€{totalBankBalance.toLocaleString("es")}</ValueBlur>
+              </p>
+            </div>
+          </div>
+          <a href="/banks" className="text-label-caps text-[9px] text-primary hover:underline">
+            Ver bancos
+          </a>
+        </section>
 
-      <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
-        <BarChart
-          data={barData}
-          trendLabel={t("dashboard.monthly_evolution")}
-          trendValue={matrix ? `+${savingsRate.toFixed(1)}% ${t("dashboard.savings").toLowerCase()}` : ""}
-          trendPositive={savingsPositive}
-          trendLine={movingAvg.length > 1 ? movingAvg : undefined}
-        />
-        {movingAvg.length > 1 && (
-          <div className="flex items-center gap-sm mt-sm">
-            <span className="w-2 h-0.5 bg-positive rounded" />
-            <span className="text-label-caps text-on-surface-variant text-[9px] uppercase">
-              {t("dashboard.trend_3m")}
+        {/* Tasa de Ahorro */}
+        <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${savingsPositive ? "bg-positive/10" : "bg-critical/10"}`}>
+              <span className={`material-symbols-outlined text-sm ${savingsPositive ? "text-positive" : "text-critical"}`}>savings</span>
+            </div>
+            <div>
+              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">{t("dashboard.savings_rate")}</p>
+              <p className={`text-headline-sm font-mono ${savingsPositive ? "text-positive" : "text-critical"}`}>{savingsRate.toFixed(1)}%</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-xs">
+            <div className="w-16 bg-surface-dim h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${savingsPositive ? "bg-positive" : savingsCritical ? "bg-critical" : "bg-warning"}`}
+                style={{ width: `${Math.min(savingsRate, 50)}%` }}
+              />
+            </div>
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">
+              {summary ? `${(summary?.net_savings || 0).toLocaleString("es")}€` : ""}
             </span>
           </div>
-        )}
-      </section>
+        </section>
 
-      {/* Row 3: Fixed + Variable + Top Categories */}
-      <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-label-caps text-on-surface-variant uppercase">
-              {t("dashboard.fixed_expense")}
-            </span>
-            <span className="text-display-lg text-on-surface tabular-nums">
-              €{(currMonthData?.fixed || 0).toLocaleString("es")}
-            </span>
+        {/* Salud Financiera */}
+        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <div className="relative w-8 h-8">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2D3748" strokeWidth="3" />
+                <circle
+                  cx="18" cy="18" r="15.915"
+                  fill="transparent"
+                  stroke={healthColor}
+                  strokeWidth="3"
+                  strokeDasharray={`${(healthScore / 100) * 100} 100`}
+                  strokeLinecap="round"
+                  className="transition-all duration-700"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[8px] font-bold tabular-nums" style={{ color: healthColor }}>{healthScore}</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Salud Financiera</p>
+              <p className="text-body-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
+            </div>
           </div>
-          <div className="p-md bg-secondary-container rounded-full text-on-secondary-container">
-            <span className="material-symbols-outlined">lock</span>
+          <div className="flex items-center gap-md text-[9px]">
+            <span className="text-on-surface-variant">{positiveMonths}/{monthsWithData.length} meses +</span>
+            <span className="text-on-surface-variant">{savingsRate.toFixed(0)}% ahorro</span>
           </div>
-        </div>
-        <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
-          <div
-            className="bg-primary h-full rounded-full"
-            style={{
-              width: `${Math.min(((currMonthData?.fixed || 0) / ((summary?.fixed_expenses || 6000) / monthsSoFar)) * 100, 100)}%`,
+        </section>
+
+        {/* Comparativa mensual */}
+        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-center">
+          <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">vs Mes Anterior</p>
+          {prevMonthData && currMonthData ? (
+            <div className="flex items-center gap-sm mt-xs">
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] text-on-surface-variant">Ingresos</span>
+                <span className={`text-label-caps tabular-nums ${incomeDelta >= 0 ? "text-positive" : "text-critical"}`}>
+                  {incomeDelta >= 0 ? "+" : ""}€{incomeDelta.toLocaleString("es")}
+                </span>
+              </div>
+              <div className="w-px h-6 bg-[#2D3748]" />
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] text-on-surface-variant">Gastos</span>
+                <span className={`text-label-caps tabular-nums ${expenseDelta <= 0 ? "text-positive" : "text-critical"}`}>
+                  {expenseDelta > 0 ? "+" : ""}€{expenseDelta.toLocaleString("es")}
+                </span>
+              </div>
+              <div className="w-px h-6 bg-[#2D3748]" />
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] text-on-surface-variant">Neto</span>
+                <span className={`text-label-caps tabular-nums font-bold ${netDelta >= 0 ? "text-positive" : "text-critical"}`}>
+                  {netDelta >= 0 ? "+" : ""}€{netDelta.toLocaleString("es")}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <span className="text-[9px] text-on-surface-variant italic mt-xs">Sin datos</span>
+          )}
+        </section>
+
+        {/* Resumen Anual (compacto) */}
+        <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <div className="w-8 h-8 rounded-full bg-warning-container flex items-center justify-center">
+              <span className="material-symbols-outlined text-sm text-on-warning-container">calendar_month</span>
+            </div>
+            <div>
+              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Resumen Anual</p>
+              <div className="flex items-baseline gap-xs">
+                <span className={`text-headline-sm font-mono ${(matrix?.yearly.net || 0) >= 0 ? "text-positive" : "text-critical"}`}>
+                  €{(matrix?.yearly.net || 0).toLocaleString("es")}
+                </span>
+                <span className="text-label-caps text-[9px] text-on-surface-variant">neto</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="w-24 bg-surface-dim h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-primary h-full rounded-full"
+                style={{ width: `${yearProgress}%` }}
+              />
+            </div>
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% año</span>
+            <div className="flex gap-md text-[9px] mt-1">
+              <span className="text-on-surface-variant">I: <span className="text-positive tabular-nums">€{(matrix?.yearly.income || 0).toLocaleString("es")}</span></span>
+              <span className="text-on-surface-variant">G: <span className="text-critical tabular-nums">€{(matrix?.yearly.expenses || 0).toLocaleString("es")}</span></span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Row 2: Donut + BarChart */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
+          <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
+            {t("dashboard.total_assets")}
+          </h2>
+          <DonutChart
+            segments={donutSegments}
+            centerLabel={`€${(totalAssets / 1000).toFixed(1)}K`}
+            centerSubtext={t("dashboard.overview")}
+            size={192}
+            showValues
+          />
+        </section>
+
+        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
+          <BarChart
+            data={barData}
+            trendLabel={t("dashboard.monthly_evolution")}
+            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: €${(currMonthData?.expenses || 0).toLocaleString("es")}`}
+            trendPositive={savingsPositive}
+            overlayLine={{
+              values: netLine,
+              color: "#10B981",
             }}
           />
-        </div>
-        {fixedChange !== null && (
-          <span
-            className={`text-data-mono text-body-sm tabular-nums ${
-              fixedChange <= 0 ? "text-positive" : "text-critical"
-            }`}
-          >
-            {fixedChange > 0 ? "+" : ""}
-            {fixedChange.toFixed(1)}% {t("dashboard.vs_last_month")}
-          </span>
-        )}
-      </section>
+          <div className="flex items-center justify-between mt-sm">
+            <div className="flex items-center gap-lg">
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-1 h-2 bg-positive rounded-sm" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Neto</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
 
-      <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-label-caps text-on-surface-variant uppercase">
-              {t("dashboard.variable_expense")}
-            </span>
-            <span className="text-display-lg text-on-surface tabular-nums">
-              €{(currMonthData?.variable || 0).toLocaleString("es")}
-            </span>
+      {/* Row 3: Fixed/Variable */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        {/* Gasto Fijo */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-label-caps text-on-surface-variant uppercase">
+                {t("dashboard.fixed_expense")}
+              </span>
+              <span className="text-display-lg text-on-surface tabular-nums">
+                €{(currMonthData?.fixed || 0).toLocaleString("es")}
+              </span>
+            </div>
+            <div className="p-md bg-secondary-container rounded-full text-on-secondary-container">
+              <span className="material-symbols-outlined">lock</span>
+            </div>
           </div>
-          <div className="p-md bg-tertiary-container rounded-full text-on-tertiary-container">
-            <span className="material-symbols-outlined">trending_up</span>
+          {avgMonthlyFixed > 0 && (
+            <div className="text-body-sm text-on-surface-variant tabular-nums">
+              {fixedPct <= 100 ? "↓" : "↑"} {Math.abs(fixedPct - 100).toFixed(0)}% vs media mensual
+            </div>
+          )}
+          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-primary h-full rounded-full"
+              style={{ width: `${Math.min(fixedPct, 100)}%` }}
+            />
           </div>
-        </div>
-        <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
+            {fixedPct.toFixed(0)}% del promedio mensual
+          </span>
+        </section>
+
+        {/* Gasto Variable */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-label-caps text-on-surface-variant uppercase">
+                {t("dashboard.variable_expense")}
+              </span>
+              <span className="text-display-lg text-on-surface tabular-nums">
+                €{(currMonthData?.variable || 0).toLocaleString("es")}
+              </span>
+            </div>
+            <div className="p-md bg-tertiary-container rounded-full text-on-tertiary-container">
+              <span className="material-symbols-outlined">trending_up</span>
+            </div>
+          </div>
+          {prevMonthData && (
+            <div className="text-body-sm tabular-nums">
+              <span className={variableDelta <= 0 ? "text-positive" : "text-critical"}>
+                {variableDelta > 0 ? "↑" : "↓"} €{Math.abs(variableDelta).toLocaleString("es")}
+              </span>
+              <span className="text-on-surface-variant"> vs mes anterior</span>
+            </div>
+          )}
+          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-tertiary h-full rounded-full"
+              style={{ width: `${Math.min(variablePct, 100)}%` }}
+            />
+          </div>
+          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
+            {variablePct.toFixed(0)}% del promedio mensual
+          </span>
+        </section>
+      </div>
+
+      {/* Row 4: Top categorías + velocidad de gasto */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        {/* Top Categorías */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <h3 className="text-label-caps text-on-surface-variant uppercase">
+            {t("dashboard.top_categories")}
+          </h3>
+          {topCats.length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant italic">
+              Sin datos de categorías
+            </p>
+          ) : (
+            <div className="flex flex-col gap-md">
+                {topCats.map((cat) => {
+                const pct = (cat.expenses / totalExpensesYTD) * 100;
+                const barWidth = (cat.expenses / maxCatExpense) * 100;
+                return (
+                  <button
+                    key={cat.group}
+                    onClick={() => openCategoryDetail(cat.group)}
+                    className="flex items-center gap-md w-full text-left hover:bg-[#2D3748]/50 rounded-lg px-1 -mx-1 py-1 transition-colors"
+                  >
+                    <span className="w-20 text-body-sm text-on-surface-variant truncate">
+                      {stripPrefix(cat.group)}
+                    </span>
+                    <div className="flex-1 bg-surface-dim h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-primary h-full rounded-full transition-all"
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                    <span className="text-data-mono text-on-surface w-20 text-right tabular-nums">
+                      €{cat.expenses.toLocaleString("es")}
+                    </span>
+                    <span className="text-body-sm text-on-surface-variant w-10 text-right">
+                      {pct.toFixed(0)}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Velocidad de gasto + Ingreso medio diario */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <h3 className="text-label-caps text-on-surface-variant uppercase">
+            Velocidad de Gasto
+          </h3>
+          <div className="flex flex-col gap-md flex-1 justify-center">
+            <div>
+              <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Gasto medio / día</span>
+              <span className="text-display-lg text-on-surface tabular-nums block">
+                €{currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.expenses / new Date().getDate()).toLocaleString("es") : 0}
+              </span>
+            </div>
+            <div className="h-px bg-[#2D3748]" />
+            <div>
+              <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Ingreso medio / día</span>
+              <span className="text-display-lg text-on-surface tabular-nums block">
+                €{currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.income / new Date().getDate()).toLocaleString("es") : 0}
+              </span>
+            </div>
+            <div className="h-px bg-[#2D3748]" />
+            <div>
+              <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Proyección anual gasto</span>
+              <span className="text-display-lg text-on-surface tabular-nums block">
+                €{currMonthData && monthsSoFar > 0 ? Math.round(avgMonthlyExpense * 12).toLocaleString("es") : 0}
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {selectedCat && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedCat(null)}
+        >
           <div
-            className="bg-tertiary h-full rounded-full"
-            style={{
-              width: `${Math.min(((currMonthData?.variable || 0) / ((summary?.variable_expenses || 4000) / monthsSoFar)) * 100, 100)}%`,
-            }}
-          />
-        </div>
-        {variableChange !== null && (
-          <span
-            className={`text-data-mono text-body-sm tabular-nums ${
-              variableChange <= 0 ? "text-positive" : "text-critical"
-            }`}
+            className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            {variableChange > 0 ? "+" : ""}
-            {variableChange.toFixed(1)}% {t("dashboard.vs_last_month")}
-          </span>
-        )}
-      </section>
-
-      <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
-        <h3 className="text-label-caps text-on-surface-variant uppercase">
-          {t("dashboard.top_categories")}
-        </h3>
-        {topCats.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant italic">
-            Sin datos de categorías
-          </p>
-        ) : (
-          <div className="flex flex-col gap-md">
-            {topCats.map((cat) => {
-              const pct = (cat.expenses / totalExpensesYTD) * 100;
-              const barWidth = (cat.expenses / maxCatExpense) * 100;
-              return (
-                <div key={cat.group} className="flex items-center gap-md">
-                  <span className="w-20 text-body-sm text-on-surface-variant truncate">
-                    {cat.group}
-                  </span>
-                  <div className="flex-1 bg-surface-dim h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-primary h-full rounded-full transition-all"
-                      style={{ width: `${barWidth}%` }}
-                    />
-                  </div>
-                  <span className="text-data-mono text-on-surface w-20 text-right tabular-nums">
-                    €{cat.expenses.toLocaleString("es")}
-                  </span>
-                  <span className="text-body-sm text-on-surface-variant w-10 text-right">
-                    {pct.toFixed(0)}%
-                  </span>
-                </div>
-              );
-            })}
+            <div className="flex items-center justify-between mb-lg">
+              <h3 className="text-label-caps text-on-surface-variant uppercase">
+                {stripPrefix(selectedCat)} — Últimos 12 Meses
+              </h3>
+              <button
+                onClick={() => setSelectedCat(null)}
+                className="p-1 rounded-lg hover:bg-[#2D3748] text-on-surface-variant hover:text-on-surface transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+            <div className="h-48">
+              {catLoading ? (
+                <div className="flex items-center justify-center h-full text-on-surface-variant text-body-sm">Cargando...</div>
+              ) : catMonthlyData ? (
+                <BarChart
+                  data={catMonthlyData.map((value, i) => {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - (11 - i));
+                    return {
+                      label: monthLabels[d.getMonth()],
+                      value: Math.round(value * 100) / 100,
+                      color: "#ffb786",
+                    };
+                  })}
+                />
+              ) : null}
+            </div>
+            <div className="flex items-center justify-between mt-md pt-md border-t border-[#2D3748]">
+              <span className="text-body-sm text-on-surface-variant">Total 12 meses</span>
+              <ValueBlur hidden={hideValues}>
+              <span className="text-data-mono text-on-surface tabular-nums">
+                €{catMonthlyData ? catMonthlyData.reduce((a, b) => a + b, 0).toLocaleString("es") : ""}
+              </span>
+              </ValueBlur>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 }

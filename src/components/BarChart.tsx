@@ -1,16 +1,28 @@
 "use client";
 
+interface BarSegment {
+  value: number;
+  color: string;
+}
+
+interface OverlayLine {
+  values: (number | null)[];
+  color: string;
+}
+
 interface BarChartProps {
   data: Array<{
     label: string;
-    value: number;
+    value?: number;
     color?: string;
+    segments?: BarSegment[];
   }>;
   height?: number;
   trendLabel?: string;
   trendValue?: string;
   trendPositive?: boolean;
   trendLine?: number[];
+  overlayLine?: OverlayLine;
 }
 
 export default function BarChart({
@@ -20,11 +32,17 @@ export default function BarChart({
   trendValue,
   trendPositive,
   trendLine,
+  overlayLine,
 }: BarChartProps) {
-  const maxValue = Math.max(...data.map((d) => Math.abs(d.value)), 1);
+  const maxValue = (() => {
+    if (data[0]?.segments) {
+      return Math.max(...data.map((d) => d.segments!.reduce((s, seg) => s + Math.abs(seg.value), 0)), 1);
+    }
+    return Math.max(...data.map((d) => Math.abs(d.value || 0)), 1);
+  })();
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       {(trendLabel || trendValue) && (
         <div className="flex justify-between items-center mb-lg">
           {trendLabel && (
@@ -53,7 +71,37 @@ export default function BarChart({
           <div className="w-full h-px bg-on-surface" />
         </div>
         {data.map((d, i) => {
-          const barHeight = (Math.abs(d.value) / maxValue) * 100;
+          if (d.segments) {
+            const totalBar = d.segments.reduce((s, seg) => s + Math.abs(seg.value), 0);
+            const barHeight = Math.max((totalBar / maxValue) * 100, 2);
+            let accumulated = 0;
+            return (
+              <div
+                key={i}
+                className="flex-1 flex flex-col justify-end relative"
+                style={{ height: `${barHeight}%` }}
+              >
+                {d.segments.map((seg, j) => {
+                  const segH = (Math.abs(seg.value) / totalBar) * 100;
+                  const isTop = j === d.segments!.length - 1;
+                  accumulated += segH;
+                  return (
+                    <div
+                      key={j}
+                      className="w-full transition-all duration-200 hover:opacity-80"
+                      style={{
+                        height: `${segH}%`,
+                        backgroundColor: seg.color,
+                        borderTopLeftRadius: isTop ? "0.125rem" : 0,
+                        borderTopRightRadius: isTop ? "0.125rem" : 0,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            );
+          }
+          const barHeight = Math.max((Math.abs(d.value || 0) / maxValue) * 100, 2);
           const isLast = i === data.length - 1;
           return (
             <div
@@ -66,6 +114,29 @@ export default function BarChart({
             />
           );
         })}
+        {overlayLine && overlayLine.values.length > 1 && (
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            style={{ width: "100%", height: "100%" }}
+            preserveAspectRatio="none"
+            viewBox={`0 0 ${overlayLine.values.length - 1} 100`}
+          >
+            <polyline
+              points={overlayLine.values
+                .map((val, i) => {
+                  if (val === null) return "";
+                  const x = i;
+                  const y = 100 - Math.min(Math.max((val / maxValue) * 100, 0), 100);
+                  return `${x},${y}`;
+                })
+                .filter(Boolean)
+                .join(" ")}
+              fill="none"
+              stroke={overlayLine.color}
+              strokeWidth="0.2"
+            />
+          </svg>
+        )}
         {trendLine && trendLine.length > 1 && (
           <svg
             className="absolute inset-0 pointer-events-none"

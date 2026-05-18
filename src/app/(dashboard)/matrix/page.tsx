@@ -51,8 +51,9 @@ export default function MatrixPage() {
   const [data, setData] = useState<MatrixData | null>(null);
   const [detailType, setDetailType] = useState<"Fijo" | "Variable">("Variable");
   const [detail, setDetail] = useState<DetailView | null>(null);
-  const [detailTxs, setDetailTxs] = useState<Array<{ id: string; concept: string; amount: number; timestamp: string; bank: { bank_name: string } | null }>>([]);
+  const [detailTxs, setDetailTxs] = useState<Array<{ id: string; concept: string; amount: number; timestamp: string; comentarios?: string | null; bank: { bank_name: string } | null }>>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [hideValues, setHideValues] = useState(false);
 
   useEffect(() => {
     fetch(`/api/dashboard/matrix?year=${year}`)
@@ -91,6 +92,17 @@ export default function MatrixPage() {
 
   const noData = months.length === 0 || months.every(m => m.income === 0 && m.expenses === 0);
 
+  const cifrasStyle = hideValues ? (
+    <style>{`
+      .hide-cifras .tabular-nums {
+        filter: blur(6px);
+        opacity: 0.35;
+        user-select: none;
+        pointer-events: none;
+      }
+    `}</style>
+  ) : null;
+
   if (noData) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -116,7 +128,8 @@ export default function MatrixPage() {
   }
 
   return (
-    <div className="space-y-lg">
+    <div className={`space-y-lg ${hideValues ? 'hide-cifras' : ''}`}>
+      {cifrasStyle}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-sm">
         <div>
           <h2 className="text-display-lg text-on-surface">Matriz Temporal</h2>
@@ -125,6 +138,13 @@ export default function MatrixPage() {
           </p>
         </div>
         <div className="flex items-center gap-sm">
+          <button
+            onClick={() => setHideValues(!hideValues)}
+            className="flex items-center gap-xs px-md py-sm rounded-lg bg-surface-container-low border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors text-body-sm"
+          >
+            <span className="material-symbols-outlined text-lg">{hideValues ? "visibility" : "visibility_off"}</span>
+            {hideValues ? "Mostrar" : "Ocultar"} cifras
+          </button>
           <div className="flex items-center bg-surface-container-low rounded-xl border border-outline-variant">
             <button
               onClick={() => setYear(y => y - 1)}
@@ -495,7 +515,14 @@ export default function MatrixPage() {
                   <tbody className="divide-y divide-outline-variant text-body-sm">
                     {detailTxs.map(tx => (
                       <tr key={tx.id} className="hover:bg-surface-container-high transition-colors">
-                        <td className="p-sm text-on-surface font-medium">{tx.concept}</td>
+                        <td className="p-sm">
+                          <div className="text-on-surface font-medium">{tx.concept}</div>
+                          {tx.comentarios && (
+                            <div className="text-on-surface-variant text-body-xs mt-xs">
+                              {tx.comentarios}
+                            </div>
+                          )}
+                        </td>
                         <td className={`p-sm text-right font-mono ${tx.amount < 0 ? "text-error" : "text-success"}`}>
                           {formatSpanish(Math.abs(tx.amount))}€
                         </td>
@@ -514,32 +541,6 @@ export default function MatrixPage() {
           </div>
         </div>
       )}
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-8">
-        <div className="lg:col-span-2 p-lg bg-surface-container border border-outline-variant rounded-xl flex flex-col justify-between">
-          <div>
-            <h4 className="text-headline-md text-on-surface mb-sm">
-              Aviso de Seguridad
-            </h4>
-            <p className="text-on-surface-variant text-body-md mb-lg">
-              Soberanía de Datos Activa: el protocolo de optimización está activo.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-sm">
-            <ConditionalChip label="Estable" variant="success" />
-            <ConditionalChip label="Re-balanceo Requerido" variant="warning" />
-          </div>
-        </div>
-        <div className="p-lg bg-surface-container-highest border border-outline-variant rounded-xl flex flex-col items-center justify-center text-center">
-          <span className="material-symbols-outlined text-[48px] text-primary mb-md" style={{ fontVariationSettings: "'FILL' 1" }}>
-            terminal
-          </span>
-          <h4 className="text-headline-md text-on-surface">Capa de Ejecución</h4>
-          <button className="mt-lg w-full py-md bg-primary text-primary-on font-semibold rounded-lg transition-colors active:opacity-80">
-            Añadir Comando
-          </button>
-        </div>
-      </section>
     </div>
   );
 }

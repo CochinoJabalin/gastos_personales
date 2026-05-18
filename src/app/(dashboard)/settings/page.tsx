@@ -1,23 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import BankManager from "@/components/BankManager";
-
-interface Bank {
-  id: string;
-  bank_name: string;
-  account_label: string;
-}
 
 export default function SettingsPage() {
   const pathname = usePathname();
-  const [banks, setBanks] = useState<Bank[]>([]);
-
-  useEffect(() => {
-    fetch("/api/banks").then((r) => r.json()).then(setBanks).catch(() => {});
-  }, []);
 
   const subNavItems = [
     { href: "/settings", label: "General", icon: "settings" },
@@ -83,12 +70,19 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Bancos */}
-        <section className="md:col-span-4 bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
-          <div className="p-lg">
-            <BankManager banks={banks} onBankAdded={() => fetch("/api/banks").then((r) => r.json()).then(setBanks)} />
+        {/* Link a Bancos */}
+        <Link
+          href="/banks"
+          className="md:col-span-4 bg-surface-container border border-outline-variant p-lg rounded-xl flex items-center justify-between hover:bg-surface-container-higher transition-colors"
+        >
+          <div className="flex flex-col gap-xs">
+            <span className="text-label-caps text-on-surface-variant uppercase">Bancos</span>
+            <span className="text-body-md text-primary font-semibold">Ir a gestión de bancos →</span>
           </div>
-        </section>
+          <div className="w-12 h-12 bg-primary-container rounded-full flex items-center justify-center">
+            <span className="material-symbols-outlined text-on-primary-container">account_balance</span>
+          </div>
+        </Link>
       </div>
     </div>
   );

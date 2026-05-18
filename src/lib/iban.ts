@@ -45,3 +45,8 @@ export function validateIBAN(iban: string): { valid: boolean; normalized?: strin
 
   return { valid: true, normalized: cleaned };
 }
+
+export function formatIBAN(iban: string): string {
+  const cleaned = iban.replace(/\s/g, "");
+  return cleaned.replace(/(.{4})/g, "$1 ").trim();
+}

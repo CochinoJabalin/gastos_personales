@@ -12,9 +12,26 @@ model Bank {
   bank_name     String
   account_label String
   iban          String?
+  balance       Float          @default(0)
   created_at    DateTime       @default(now())
+  accounts      Account[]
   transactions  Transaction[]
   mappingRules  MappingRule[]
+}
+
+model Account {
+  id                String         @id @default(uuid())
+  bank_id           String
+  bank              Bank           @relation(fields: [bank_id], references: [id])
+  account_label     String
+  iban              String?
+  balance           Float          @default(0)
+  is_default        Boolean        @default(false)
+  interest_rate     Float          @default(0)
+  interest_period   String         @default("none")
+  last_interest_date DateTime?
+  created_at        DateTime       @default(now())
+  transactions      Transaction[]
 }
 
 model Transaction {
@@ -24,6 +41,8 @@ model Transaction {
   amount           Float
   bank_id          String
   bank             Bank      @relation(fields: [bank_id], references: [id])
+  account_id       String?
+  account          Account?  @relation(fields: [account_id], references: [id])
   group            String
   type             String
   is_recurring     Boolean   @default(false)
