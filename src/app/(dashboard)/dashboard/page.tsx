@@ -504,7 +504,54 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {/* Row 3: Fixed/Variable */}
+      {/* Row 3: Donut + BarChart */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
+          <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
+            {t("dashboard.total_assets")}
+          </h2>
+          <DonutChart
+            segments={donutSegments}
+            centerLabel={`${(totalAssets / 1000).toFixed(1)}K€`}
+            centerSubtext={t("dashboard.overview")}
+            size={192}
+            showValues
+            hidden={hideValues}
+          />
+        </section>
+
+        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
+          <BarChart
+            data={barData}
+            trendLabel={t("dashboard.monthly_evolution")}
+            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: ${(currMonthData?.expenses || 0).toLocaleString("es")}€`}
+            trendPositive={savingsPositive}
+            overlayLine={{
+              values: netLine,
+              color: "#10B981",
+            }}
+            hidden={hideValues}
+          />
+          <div className="flex items-center justify-between mt-sm">
+            <div className="flex items-center gap-lg">
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-1 h-2 bg-positive rounded-sm" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Neto</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Row 4: Fixed/Variable */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
         {/* Gasto Fijo */}
         <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
@@ -575,53 +622,6 @@ export default function DashboardPage() {
           <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
             {variablePct.toFixed(0)}% del promedio mensual
           </span>
-        </section>
-      </div>
-
-      {/* Row 4: Donut + BarChart */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
-          <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
-            {t("dashboard.total_assets")}
-          </h2>
-          <DonutChart
-            segments={donutSegments}
-            centerLabel={`${(totalAssets / 1000).toFixed(1)}K€`}
-            centerSubtext={t("dashboard.overview")}
-            size={192}
-            showValues
-            hidden={hideValues}
-          />
-        </section>
-
-        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
-          <BarChart
-            data={barData}
-            trendLabel={t("dashboard.monthly_evolution")}
-            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: ${(currMonthData?.expenses || 0).toLocaleString("es")}€`}
-            trendPositive={savingsPositive}
-            overlayLine={{
-              values: netLine,
-              color: "#10B981",
-            }}
-            hidden={hideValues}
-          />
-          <div className="flex items-center justify-between mt-sm">
-            <div className="flex items-center gap-lg">
-              <div className="flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <span className="w-1 h-2 bg-positive rounded-sm" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Neto</span>
-              </div>
-            </div>
-          </div>
         </section>
       </div>
 
