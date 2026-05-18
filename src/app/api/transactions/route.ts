@@ -34,11 +34,14 @@ export async function GET(request: NextRequest) {
   } else if (year) {
     const y = parseInt(year);
     const start = new Date(y, month ? parseInt(month) - 1 : 0, 1);
-    const monthEnd = month
-      ? new Date(y, parseInt(month), 1)
-      : new Date(y + 1, 0, 1);
-    const end = monthEnd > tomorrow ? tomorrow : monthEnd;
-    where.timestamp = { gte: start, lt: end };
+    if (month) {
+      const end = new Date(y, parseInt(month), 1);
+      where.timestamp = { gte: start, lt: end };
+    } else {
+      const yearEnd = new Date(y + 1, 0, 1);
+      const end = yearEnd > tomorrow ? tomorrow : yearEnd;
+      where.timestamp = { gte: start, lt: end };
+    }
   } else {
     where.timestamp = { lt: tomorrow };
   }
