@@ -10,6 +10,7 @@ export default function ImportSettingsPage() {
 
   const subNavItems = [
     { href: "/settings", label: "General", icon: "settings" },
+    { href: "/settings/banks", label: "Bancos", icon: "account_balance" },
     { href: "/settings/mapping-rules", label: "Mapeos", icon: "rule" },
     { href: "/settings/import", label: "Importar", icon: "upload" },
   ];

@@ -139,6 +139,13 @@ export async function GET(request: NextRequest) {
     type: t.type,
   })));
 
+  const prevGroupsMonthly = getGroupsMonthly(prevTxs.map((t) => ({
+    timestamp: t.timestamp,
+    group: t.group,
+    amount: Number(t.amount),
+    type: t.type,
+  })));
+
   return NextResponse.json({
     year,
     minYear,
@@ -152,6 +159,7 @@ export async function GET(request: NextRequest) {
     },
     groups,
     groupsMonthly,
+    prevGroupsMonthly,
   });
 }
 

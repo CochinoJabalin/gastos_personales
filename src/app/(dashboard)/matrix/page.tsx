@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StatCard from "@/components/StatCard";
 import ConditionalChip from "@/components/ConditionalChip";
 import { formatSpanish } from "@/lib/format";
+import { useView } from "@/lib/ViewContext";
 
 interface MatrixMonth {
   month: number;
@@ -36,6 +37,7 @@ interface MatrixData {
   yearly: { income: number; expenses: number; fixed: number; variable: number; net: number };
   prevYear: YearSummary | null;
   groupsMonthly: GroupMonthly[];
+  prevGroupsMonthly: GroupMonthly[];
 }
 
 interface DetailView {
@@ -53,7 +55,15 @@ export default function MatrixPage() {
   const [detail, setDetail] = useState<DetailView | null>(null);
   const [detailTxs, setDetailTxs] = useState<Array<{ id: string; concept: string; amount: number; timestamp: string; comentarios?: string | null; bank: { bank_name: string } | null }>>([]);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [hideValues, setHideValues] = useState(false);
+  const { hideValues, setHideValues } = useView();
+
+  const prevAvgByGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const g of (data?.prevGroupsMonthly || [])) {
+      map.set(g.group, Math.round((g.total / 12) * 100) / 100);
+    }
+    return map;
+  }, [data?.prevGroupsMonthly]);
 
   useEffect(() => {
     fetch(`/api/dashboard/matrix?year=${year}`)
@@ -194,13 +204,13 @@ export default function MatrixPage() {
       <section className="grid grid-cols-1 md:grid-cols-4 gap-gutter">
         <StatCard
           label="Ahorro Neto"
-          value={`€${totalRow.net.toLocaleString("es")}`}
+          value={`${totalRow.net.toLocaleString("es")}€`}
           trend="+12.4% vs periodo anterior"
           positive
         />
         <StatCard
           label="Tasa de Gasto"
-          value={`€${totalRow.expenses.toLocaleString("es")}`}
+          value={`${totalRow.expenses.toLocaleString("es")}€`}
           trend="Alerta Crítica"
           critical
         />
@@ -247,17 +257,17 @@ export default function MatrixPage() {
                   </td>
                   {months.map((m) => (
                     <td key={m.month} className="p-sm text-primary tabular-nums">
-                      €{m.income.toLocaleString("es")}
+                      {m.income.toLocaleString("es")}€
                     </td>
                   ))}
                   <td className="p-sm font-bold text-white tabular-nums">
-                    €{totalRow.income.toLocaleString("es")}
+                    {totalRow.income.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums">
-                    €{avgRow.income.toLocaleString("es")}
+                    {avgRow.income.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
-                    €{prevAverages ? prevAverages.income.toLocaleString("es") : "-"}
+                    {prevAverages ? prevAverages.income.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
@@ -273,18 +283,18 @@ export default function MatrixPage() {
                           isAlert ? "text-tertiary font-bold" : ""
                         }`}
                       >
-                        €{m.fixed.toLocaleString("es")}
+                        {m.fixed.toLocaleString("es")}€
                       </td>
                     );
                   })}
                   <td className="p-sm font-bold text-white tabular-nums">
-                    €{totalRow.fixed.toLocaleString("es")}
+                    {totalRow.fixed.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums">
-                    €{avgRow.fixed.toLocaleString("es")}
+                    {avgRow.fixed.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
-                    €{prevAverages ? prevAverages.fixed.toLocaleString("es") : "-"}
+                    {prevAverages ? prevAverages.fixed.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
@@ -300,18 +310,18 @@ export default function MatrixPage() {
                           isHigh ? "text-tertiary font-bold" : ""
                         }`}
                       >
-                        €{m.variable.toLocaleString("es")}
+                        {m.variable.toLocaleString("es")}€
                       </td>
                     );
                   })}
                   <td className="p-sm font-bold text-white tabular-nums">
-                    €{totalRow.variable.toLocaleString("es")}
+                    {totalRow.variable.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums">
-                    €{avgRow.variable.toLocaleString("es")}
+                    {avgRow.variable.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
-                    €{prevAverages ? prevAverages.variable.toLocaleString("es") : "-"}
+                    {prevAverages ? prevAverages.variable.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant bg-surface-container-low font-bold">
@@ -325,17 +335,17 @@ export default function MatrixPage() {
                         m.net >= 0 ? "text-primary" : "text-tertiary"
                       }`}
                     >
-                      €{m.net.toLocaleString("es")}
+                      {m.net.toLocaleString("es")}€
                     </td>
                   ))}
                   <td className="p-sm font-extrabold text-white tabular-nums">
-                    €{totalRow.net.toLocaleString("es")}
+                    {totalRow.net.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-extrabold tabular-nums">
-                    €{avgRow.net.toLocaleString("es")}
+                    {avgRow.net.toLocaleString("es")}€
                   </td>
                   <td className="p-sm font-extrabold tabular-nums bg-surface-container-highest">
-                    €{prevAverages ? prevAverages.net.toLocaleString("es") : "-"}
+                    {prevAverages ? prevAverages.net.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
               </tbody>
@@ -428,6 +438,9 @@ export default function MatrixPage() {
                 <th className="p-sm text-label-caps text-on-surface-variant">
                   Media
                 </th>
+                <th className="p-sm text-label-caps text-on-surface-variant">
+                  Media Año Ant.
+                </th>
               </tr>
             </thead>
             <tbody className="text-data-mono text-body-sm">
@@ -450,21 +463,26 @@ export default function MatrixPage() {
                           }`}
                           onClick={() => m > 0 && openDetail(g.group, i, m)}
                         >
-                          {m > 0 ? `€${m.toLocaleString("es")}` : "—"}
+                          {m > 0 ? `${m.toLocaleString("es")}€` : "—"}
                         </td>
                       ))}
                       <td className="p-sm font-bold text-white tabular-nums">
-                        €{g.total.toLocaleString("es")}
+                        {g.total.toLocaleString("es")}€
                       </td>
                       <td className="p-sm font-bold tabular-nums">
-                        €{avg.toLocaleString("es")}
+                        {avg.toLocaleString("es")}€
+                      </td>
+                      <td className="p-sm text-on-surface-variant tabular-nums">
+                        {prevAvgByGroup.has(g.group)
+                          ? `${prevAvgByGroup.get(g.group)!.toLocaleString("es")}€`
+                          : "—"}
                       </td>
                     </tr>
                   );
                 })}
               {(!data?.groupsMonthly || data.groupsMonthly.filter(g => g.type === detailType).length === 0) && (
                 <tr>
-                  <td colSpan={14 + 2} className="p-lg text-center text-on-surface-variant">
+                  <td colSpan={months.length + 3} className="p-lg text-center text-on-surface-variant">
                     No hay categorías con {detailType === "Fijo" ? "gastos fijos" : "gastos variables"}
                   </td>
                 </tr>
@@ -491,7 +509,7 @@ export default function MatrixPage() {
                 </p>
               </div>
               <div className="flex items-center gap-md">
-                <span className="text-data-mono text-primary font-bold">€{formatSpanish(detail.amount)}</span>
+                <span className="text-data-mono text-primary font-bold tabular-nums">{formatSpanish(detail.amount)}€</span>
                 <button onClick={() => setDetail(null)} className="text-on-surface-variant hover:text-on-surface">
                   <span className="material-symbols-outlined">close</span>
                 </button>

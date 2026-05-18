@@ -1,5 +1,7 @@
 "use client";
 
+import ValueBlur from "@/components/ValueBlur";
+
 interface BarSegment {
   value: number;
   color: string;
@@ -23,6 +25,7 @@ interface BarChartProps {
   trendPositive?: boolean;
   trendLine?: number[];
   overlayLine?: OverlayLine;
+  hidden?: boolean;
 }
 
 export default function BarChart({
@@ -33,6 +36,7 @@ export default function BarChart({
   trendPositive,
   trendLine,
   overlayLine,
+  hidden = false,
 }: BarChartProps) {
   const maxValue = (() => {
     if (data[0]?.segments) {
@@ -51,6 +55,7 @@ export default function BarChart({
             </span>
           )}
           {trendValue && (
+            <ValueBlur hidden={hidden}>
             <span
               className={`text-data-mono text-body-sm tabular-nums ${
                 trendPositive ? "text-positive" : "text-on-surface-variant"
@@ -58,6 +63,7 @@ export default function BarChart({
             >
               {trendValue}
             </span>
+            </ValueBlur>
           )}
         </div>
       )}

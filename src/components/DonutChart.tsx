@@ -1,5 +1,7 @@
 "use client";
 
+import ValueBlur from "@/components/ValueBlur";
+
 interface DonutChartProps {
   segments: Array<{
     label: string;
@@ -10,6 +12,7 @@ interface DonutChartProps {
   centerSubtext?: string;
   size?: number;
   showValues?: boolean;
+  hidden?: boolean;
 }
 
 export default function DonutChart({
@@ -18,6 +21,7 @@ export default function DonutChart({
   centerSubtext,
   size = 192,
   showValues = false,
+  hidden = false,
 }: DonutChartProps) {
   const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
   const cx = 18;
@@ -67,9 +71,11 @@ export default function DonutChart({
         ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <ValueBlur hidden={hidden}>
         <span className="text-data-mono text-on-surface tabular-nums">
           {centerLabel || `${Math.round((segments[0]?.value || 0) / total * 100)}%`}
         </span>
+        </ValueBlur>
         <span className="text-[10px] text-on-surface-variant">
           {centerSubtext || ""}
         </span>
@@ -84,9 +90,11 @@ export default function DonutChart({
             <span className="text-body-sm text-on-surface-variant whitespace-nowrap">
               {seg.label}
               {showValues && (
+                <ValueBlur hidden={hidden}>
                 <span className="text-data-mono text-on-surface tabular-nums ml-xs">
-                  €{seg.value.toLocaleString("es")}
+                  {seg.value.toLocaleString("es")}€
                 </span>
+                </ValueBlur>
               )}
             </span>
           </div>

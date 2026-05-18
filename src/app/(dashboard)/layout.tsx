@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import TopAppBar from "@/components/TopAppBar";
 import AuthGuard from "@/components/AuthGuard";
 import BankOnboarding from "@/components/BankOnboarding";
+import { ViewProvider } from "@/lib/ViewContext";
 
 export default function DashboardLayout({
   children,
@@ -50,12 +51,14 @@ export default function DashboardLayout({
   return (
     <SessionProvider>
       <AuthGuard>
-        <TopAppBar />
-        <main className="md:ml-56 pt-14 pb-20 md:pb-6 min-h-screen bg-surface">
-          <div className="max-w-7xl mx-auto px-container-margin py-4 space-y-4">
-            {children}
-          </div>
-        </main>
+        <ViewProvider>
+          <TopAppBar />
+          <main className="md:ml-56 pt-14 pb-20 md:pb-6 min-h-screen bg-surface">
+            <div className="max-w-7xl mx-auto px-container-margin py-4 space-y-4">
+              {children}
+            </div>
+          </main>
+        </ViewProvider>
       </AuthGuard>
     </SessionProvider>
   );

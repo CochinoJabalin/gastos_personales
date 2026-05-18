@@ -488,33 +488,6 @@ export default function QuickEntryPage() {
         </div>
       </form>
 
-      <div className="grid grid-cols-2 gap-gutter">
-        <div className="bg-surface-container p-md rounded-xl border border-outline-variant">
-          <p className="text-label-caps text-on-surface-variant uppercase">
-            Límite Diario
-          </p>
-          <div className="flex items-end justify-between mt-sm">
-            <span className="text-data-mono text-on-surface tabular-nums">€2.400,00</span>
-            <span className="text-label-caps text-[10px] text-error">84% USADO</span>
-          </div>
-          <div className="w-full h-1 bg-surface-container-highest rounded-full mt-xs overflow-hidden">
-            <div className="h-full bg-error w-[84%]" />
-          </div>
-        </div>
-        <div className="bg-surface-container p-md rounded-xl border border-outline-variant">
-          <p className="text-label-caps text-on-surface-variant uppercase">
-            Estimado Mensual
-          </p>
-          <div className="flex items-end justify-between mt-sm">
-            <span className="text-data-mono text-on-surface tabular-nums">€12.850</span>
-            <span className="text-label-caps text-[10px] text-primary">ENCAMINADO</span>
-          </div>
-          <div className="w-full h-1 bg-surface-container-highest rounded-full mt-xs overflow-hidden">
-            <div className="h-full bg-primary w-[45%]" />
-          </div>
-        </div>
-      </div>
-
       <div className="bg-surface-container-low border border-outline-variant rounded-xl p-lg">
         <div className="flex items-center justify-between mb-md">
           <h3 className="text-label-caps text-on-surface-variant uppercase">

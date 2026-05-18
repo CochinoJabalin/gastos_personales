@@ -44,4 +44,12 @@ body {
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  .hide-cifras .val-euro {
+    filter: blur(6px);
+    opacity: 0.3;
+    transition: filter 0.3s, opacity 0.3s;
+    user-select: none;
+    pointer-events: none;
+  }
 }

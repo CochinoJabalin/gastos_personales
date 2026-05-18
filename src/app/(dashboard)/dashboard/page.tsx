@@ -5,6 +5,7 @@ import DonutChart from "@/components/DonutChart";
 import BarChart from "@/components/BarChart";
 import ValueBlur from "@/components/ValueBlur";
 import { t } from "@/lib/i18n";
+import { useView } from "@/lib/ViewContext";
 
 const stripPrefix = (s: string) => s.replace(/^gastos\s+/i, "");
 
@@ -69,7 +70,7 @@ export default function DashboardPage() {
   const [matrix, setMatrix] = useState<MatrixResponse | null>(null);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hideValues, setHideValues] = useState(false);
+  const { hideValues, setHideValues } = useView();
 
   useEffect(() => {
     Promise.all([
@@ -100,20 +101,21 @@ export default function DashboardPage() {
       fetch(`/api/dashboard/matrix?year=${currentYear - 1}`).then((r) => r.json()),
     ])
       .then(([curr, prev]) => {
-        const currGroup = curr.groupsMonthly?.find(
-          (gm: GroupMonthly) => gm.group === group && gm.type === "expense"
-        );
-        const prevGroup = prev.groupsMonthly?.find(
-          (gm: GroupMonthly) => gm.group === group && gm.type === "expense"
-        );
+        const currGroups = curr.groupsMonthly?.filter(
+          (gm: GroupMonthly) => gm.group === group
+        ) || [];
+        const prevGroups = prev.groupsMonthly?.filter(
+          (gm: GroupMonthly) => gm.group === group
+        ) || [];
         const combined: number[] = [];
         const now = new Date();
         for (let i = 11; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const monthIndex = d.getMonth();
           const year = d.getFullYear();
-          const source = year === currentYear ? currGroup : prevGroup;
-          combined.push(source ? source.months[monthIndex] || 0 : 0);
+          const source = year === currentYear ? currGroups : prevGroups;
+          const total = source.reduce((sum: number, g: GroupMonthly) => sum + (g.months[monthIndex] || 0), 0);
+          combined.push(total);
         }
         setCatMonthlyData(combined);
       })
@@ -242,7 +244,7 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="flex flex-col space-y-gutter">
+    <div className={`flex flex-col gap-6 ${hideValues ? "hide-cifras" : ""}`}>
       <div className="flex items-center justify-end">
         <button
           onClick={() => setHideValues(!hideValues)}
@@ -260,104 +262,123 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 1: Balance Total + Tasa de Ahorro + Salud Financiera + vs Mes Anterior + Resumen Anual */}
-      <div className={`grid grid-cols-1 md:grid-cols-12 gap-gutter ${hideValues ? "hide-cifras" : ""}`}>
-        {/* Balance Total (compacto) */}
-        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
-          <div className="flex items-center gap-sm">
-            <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
-              <span className="material-symbols-outlined text-sm text-on-primary-container">account_balance</span>
-            </div>
-            <div>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-gutter">
+        {/* Balance Total */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+          <div className="flex flex-col gap-sm">
+            <div className="flex items-center gap-sm">
+              <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-lg text-on-primary-container">account_balance</span>
+              </div>
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Balance Total</p>
-              <p className={`text-headline-sm font-mono ${totalBankBalance >= 0 ? "text-success" : "text-error"}`}>
-                <ValueBlur hidden={hideValues}>€{totalBankBalance.toLocaleString("es")}</ValueBlur>
-              </p>
             </div>
+            <p className={`text-headline-md font-mono ${totalBankBalance >= 0 ? "text-positive" : "text-critical"}`}>
+              <ValueBlur hidden={hideValues}>{totalBankBalance.toLocaleString("es")}€</ValueBlur>
+            </p>
           </div>
-          <a href="/banks" className="text-label-caps text-[9px] text-primary hover:underline">
-            Ver bancos
-          </a>
+          <div className="flex items-center justify-between">
+            <span className="text-label-caps text-[9px] text-on-surface-variant">{banks.length} {banks.length === 1 ? "cuenta" : "cuentas"}</span>
+            <a href="/settings/banks" className="text-label-caps text-[9px] text-primary hover:underline">
+              Ver bancos
+            </a>
+          </div>
         </section>
 
         {/* Tasa de Ahorro */}
-        <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
-          <div className="flex items-center gap-sm">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${savingsPositive ? "bg-positive/10" : "bg-critical/10"}`}>
-              <span className={`material-symbols-outlined text-sm ${savingsPositive ? "text-positive" : "text-critical"}`}>savings</span>
-            </div>
-            <div>
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+          <div className="flex flex-col gap-sm">
+            <div className="flex items-center gap-sm">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${savingsPositive ? "bg-positive/10" : "bg-critical/10"}`}>
+                <span className={`material-symbols-outlined text-sm ${savingsPositive ? "text-positive" : "text-critical"}`}>savings</span>
+              </div>
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">{t("dashboard.savings_rate")}</p>
-              <p className={`text-headline-sm font-mono ${savingsPositive ? "text-positive" : "text-critical"}`}>{savingsRate.toFixed(1)}%</p>
             </div>
+            <ValueBlur hidden={hideValues}>
+            <p className={`text-headline-sm font-mono ${savingsPositive ? "text-positive" : "text-critical"}`}>{savingsRate.toFixed(1)}%</p>
+            </ValueBlur>
           </div>
-          <div className="flex items-center gap-xs">
-            <div className="w-16 bg-surface-dim h-1.5 rounded-full overflow-hidden">
+          <div className="flex flex-col gap-xs">
+            <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${savingsPositive ? "bg-positive" : savingsCritical ? "bg-critical" : "bg-warning"}`}
-                style={{ width: `${Math.min(savingsRate, 50)}%` }}
+                style={{ width: `${Math.min(savingsRate, 50) * 2}%` }}
               />
             </div>
-            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">
-              {summary ? `${(summary?.net_savings || 0).toLocaleString("es")}€` : ""}
+            <ValueBlur hidden={hideValues}>
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums val-euro">
+              Neto: {summary ? `${(summary?.net_savings || 0).toLocaleString("es")}€` : ""}
             </span>
+            </ValueBlur>
           </div>
         </section>
 
         {/* Salud Financiera */}
-        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
-          <div className="flex items-center gap-sm">
-            <div className="relative w-8 h-8">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2D3748" strokeWidth="3" />
-                <circle
-                  cx="18" cy="18" r="15.915"
-                  fill="transparent"
-                  stroke={healthColor}
-                  strokeWidth="3"
-                  strokeDasharray={`${(healthScore / 100) * 100} 100`}
-                  strokeLinecap="round"
-                  className="transition-all duration-700"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[8px] font-bold tabular-nums" style={{ color: healthColor }}>{healthScore}</span>
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+          <div className="flex flex-col gap-sm">
+            <div className="flex items-center gap-sm">
+              <div className="relative w-8 h-8">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2D3748" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="15.915"
+                    fill="transparent"
+                    stroke={healthColor}
+                    strokeWidth="3"
+                    strokeDasharray={`${(healthScore / 100) * 100} 100`}
+                    strokeLinecap="round"
+                    className="transition-all duration-700"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <ValueBlur hidden={hideValues}>
+                  <span className="text-[8px] font-bold tabular-nums" style={{ color: healthColor }}>{healthScore}</span>
+                  </ValueBlur>
+                </div>
               </div>
-            </div>
-            <div>
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Salud Financiera</p>
-              <p className="text-body-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
             </div>
+            <p className="text-body-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
           </div>
-          <div className="flex items-center gap-md text-[9px]">
-            <span className="text-on-surface-variant">{positiveMonths}/{monthsWithData.length} meses +</span>
-            <span className="text-on-surface-variant">{savingsRate.toFixed(0)}% ahorro</span>
+          <div className="flex flex-col gap-1 text-[9px]">
+            <ValueBlur hidden={hideValues}>
+            <span className="text-on-surface-variant">{positiveMonths}/{monthsWithData.length} meses positivos</span>
+            </ValueBlur>
+            <ValueBlur hidden={hideValues}>
+            <span className="text-on-surface-variant">{savingsRate.toFixed(0)}% tasa de ahorro</span>
+            </ValueBlur>
           </div>
         </section>
 
         {/* Comparativa mensual */}
-        <section className="md:col-span-2 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-center">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
           <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">vs Mes Anterior</p>
           {prevMonthData && currMonthData ? (
-            <div className="flex items-center gap-sm mt-xs">
-              <div className="flex flex-col items-center">
+            <div className="flex flex-col gap-sm mt-xs">
+              <div className="flex items-center justify-between">
                 <span className="text-[8px] text-on-surface-variant">Ingresos</span>
-                <span className={`text-label-caps tabular-nums ${incomeDelta >= 0 ? "text-positive" : "text-critical"}`}>
-                  {incomeDelta >= 0 ? "+" : ""}€{incomeDelta.toLocaleString("es")}
+                <ValueBlur hidden={hideValues}>
+                <span className={`text-label-caps tabular-nums val-euro ${incomeDelta >= 0 ? "text-positive" : "text-critical"}`}>
+                  {incomeDelta >= 0 ? "+" : ""}{incomeDelta.toLocaleString("es")}€
                 </span>
+                </ValueBlur>
               </div>
-              <div className="w-px h-6 bg-[#2D3748]" />
-              <div className="flex flex-col items-center">
+              <div className="w-full h-px bg-[#2D3748]" />
+              <div className="flex items-center justify-between">
                 <span className="text-[8px] text-on-surface-variant">Gastos</span>
-                <span className={`text-label-caps tabular-nums ${expenseDelta <= 0 ? "text-positive" : "text-critical"}`}>
-                  {expenseDelta > 0 ? "+" : ""}€{expenseDelta.toLocaleString("es")}
+                <ValueBlur hidden={hideValues}>
+                <span className={`text-label-caps tabular-nums val-euro ${expenseDelta <= 0 ? "text-positive" : "text-critical"}`}>
+                  {expenseDelta > 0 ? "+" : ""}{expenseDelta.toLocaleString("es")}€
                 </span>
+                </ValueBlur>
               </div>
-              <div className="w-px h-6 bg-[#2D3748]" />
-              <div className="flex flex-col items-center">
+              <div className="w-full h-px bg-[#2D3748]" />
+              <div className="flex items-center justify-between">
                 <span className="text-[8px] text-on-surface-variant">Neto</span>
-                <span className={`text-label-caps tabular-nums font-bold ${netDelta >= 0 ? "text-positive" : "text-critical"}`}>
-                  {netDelta >= 0 ? "+" : ""}€{netDelta.toLocaleString("es")}
+                <ValueBlur hidden={hideValues}>
+                <span className={`text-label-caps tabular-nums val-euro font-bold ${netDelta >= 0 ? "text-positive" : "text-critical"}`}>
+                  {netDelta >= 0 ? "+" : ""}{netDelta.toLocaleString("es")}€
                 </span>
+                </ValueBlur>
               </div>
             </div>
           ) : (
@@ -365,152 +386,43 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Resumen Anual (compacto) */}
-        <section className="md:col-span-3 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex items-center justify-between">
-          <div className="flex items-center gap-sm">
-            <div className="w-8 h-8 rounded-full bg-warning-container flex items-center justify-center">
-              <span className="material-symbols-outlined text-sm text-on-warning-container">calendar_month</span>
-            </div>
-            <div>
-              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Resumen Anual</p>
-              <div className="flex items-baseline gap-xs">
-                <span className={`text-headline-sm font-mono ${(matrix?.yearly.net || 0) >= 0 ? "text-positive" : "text-critical"}`}>
-                  €{(matrix?.yearly.net || 0).toLocaleString("es")}
-                </span>
-                <span className="text-label-caps text-[9px] text-on-surface-variant">neto</span>
+        {/* Resumen Anual */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+          <div className="flex flex-col gap-sm">
+            <div className="flex items-center gap-sm">
+              <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-sm text-on-secondary-container">calendar_month</span>
               </div>
+              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Resumen Anual</p>
+            </div>
+            <div className="flex items-baseline gap-xs">
+              <ValueBlur hidden={hideValues}>
+              <span className={`text-headline-sm font-mono val-euro ${(matrix?.yearly.net || 0) >= 0 ? "text-positive" : "text-critical"}`}>
+                {(matrix?.yearly.net || 0).toLocaleString("es")}€
+              </span>
+              </ValueBlur>
+              <span className="text-label-caps text-[9px] text-on-surface-variant">neto</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="w-24 bg-surface-dim h-1.5 rounded-full overflow-hidden">
+          <div className="flex flex-col gap-1">
+            <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
               <div
                 className="bg-primary h-full rounded-full"
                 style={{ width: `${yearProgress}%` }}
               />
             </div>
-            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% año</span>
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% del año</span>
             <div className="flex gap-md text-[9px] mt-1">
-              <span className="text-on-surface-variant">I: <span className="text-positive tabular-nums">€{(matrix?.yearly.income || 0).toLocaleString("es")}</span></span>
-              <span className="text-on-surface-variant">G: <span className="text-critical tabular-nums">€{(matrix?.yearly.expenses || 0).toLocaleString("es")}</span></span>
+              <span className="text-on-surface-variant">Ingresos: <ValueBlur hidden={hideValues}><span className="text-positive tabular-nums val-euro">{(matrix?.yearly.income || 0).toLocaleString("es")}€</span></ValueBlur></span>
+            </div>
+            <div className="flex gap-md text-[9px]">
+              <span className="text-on-surface-variant">Gastos: <ValueBlur hidden={hideValues}><span className="text-critical tabular-nums val-euro">{(matrix?.yearly.expenses || 0).toLocaleString("es")}€</span></ValueBlur></span>
             </div>
           </div>
         </section>
       </div>
 
-      {/* Row 2: Donut + BarChart */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
-          <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
-            {t("dashboard.total_assets")}
-          </h2>
-          <DonutChart
-            segments={donutSegments}
-            centerLabel={`€${(totalAssets / 1000).toFixed(1)}K`}
-            centerSubtext={t("dashboard.overview")}
-            size={192}
-            showValues
-          />
-        </section>
-
-        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
-          <BarChart
-            data={barData}
-            trendLabel={t("dashboard.monthly_evolution")}
-            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: €${(currMonthData?.expenses || 0).toLocaleString("es")}`}
-            trendPositive={savingsPositive}
-            overlayLine={{
-              values: netLine,
-              color: "#10B981",
-            }}
-          />
-          <div className="flex items-center justify-between mt-sm">
-            <div className="flex items-center gap-lg">
-              <div className="flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <span className="w-1 h-2 bg-positive rounded-sm" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Neto</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Row 3: Fixed/Variable */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        {/* Gasto Fijo */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-label-caps text-on-surface-variant uppercase">
-                {t("dashboard.fixed_expense")}
-              </span>
-              <span className="text-display-lg text-on-surface tabular-nums">
-                €{(currMonthData?.fixed || 0).toLocaleString("es")}
-              </span>
-            </div>
-            <div className="p-md bg-secondary-container rounded-full text-on-secondary-container">
-              <span className="material-symbols-outlined">lock</span>
-            </div>
-          </div>
-          {avgMonthlyFixed > 0 && (
-            <div className="text-body-sm text-on-surface-variant tabular-nums">
-              {fixedPct <= 100 ? "↓" : "↑"} {Math.abs(fixedPct - 100).toFixed(0)}% vs media mensual
-            </div>
-          )}
-          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
-            <div
-              className="bg-primary h-full rounded-full"
-              style={{ width: `${Math.min(fixedPct, 100)}%` }}
-            />
-          </div>
-          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
-            {fixedPct.toFixed(0)}% del promedio mensual
-          </span>
-        </section>
-
-        {/* Gasto Variable */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-label-caps text-on-surface-variant uppercase">
-                {t("dashboard.variable_expense")}
-              </span>
-              <span className="text-display-lg text-on-surface tabular-nums">
-                €{(currMonthData?.variable || 0).toLocaleString("es")}
-              </span>
-            </div>
-            <div className="p-md bg-tertiary-container rounded-full text-on-tertiary-container">
-              <span className="material-symbols-outlined">trending_up</span>
-            </div>
-          </div>
-          {prevMonthData && (
-            <div className="text-body-sm tabular-nums">
-              <span className={variableDelta <= 0 ? "text-positive" : "text-critical"}>
-                {variableDelta > 0 ? "↑" : "↓"} €{Math.abs(variableDelta).toLocaleString("es")}
-              </span>
-              <span className="text-on-surface-variant"> vs mes anterior</span>
-            </div>
-          )}
-          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
-            <div
-              className="bg-tertiary h-full rounded-full"
-              style={{ width: `${Math.min(variablePct, 100)}%` }}
-            />
-          </div>
-          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
-            {variablePct.toFixed(0)}% del promedio mensual
-          </span>
-        </section>
-      </div>
-
-      {/* Row 4: Top categorías + velocidad de gasto */}
+      {/* Row 2: Top categorías + velocidad de gasto */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
         {/* Top Categorías */}
         <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
@@ -541,9 +453,11 @@ export default function DashboardPage() {
                         style={{ width: `${barWidth}%` }}
                       />
                     </div>
-                    <span className="text-data-mono text-on-surface w-20 text-right tabular-nums">
-                      €{cat.expenses.toLocaleString("es")}
+                    <ValueBlur hidden={hideValues}>
+                    <span className="text-data-mono text-on-surface w-20 text-right tabular-nums val-euro">
+                      {cat.expenses.toLocaleString("es")}€
                     </span>
+                    </ValueBlur>
                     <span className="text-body-sm text-on-surface-variant w-10 text-right">
                       {pct.toFixed(0)}%
                     </span>
@@ -562,23 +476,150 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-md flex-1 justify-center">
             <div>
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Gasto medio / día</span>
-              <span className="text-display-lg text-on-surface tabular-nums block">
-                €{currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.expenses / new Date().getDate()).toLocaleString("es") : 0}
+              <ValueBlur hidden={hideValues}>
+              <span className="text-display-lg text-on-surface tabular-nums val-euro block">
+                {currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.expenses / new Date().getDate()).toLocaleString("es") : 0}€
               </span>
+              </ValueBlur>
             </div>
             <div className="h-px bg-[#2D3748]" />
             <div>
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Ingreso medio / día</span>
-              <span className="text-display-lg text-on-surface tabular-nums block">
-                €{currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.income / new Date().getDate()).toLocaleString("es") : 0}
+              <ValueBlur hidden={hideValues}>
+              <span className="text-display-lg text-on-surface tabular-nums val-euro block">
+                {currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.income / new Date().getDate()).toLocaleString("es") : 0}€
               </span>
+              </ValueBlur>
             </div>
             <div className="h-px bg-[#2D3748]" />
             <div>
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Proyección anual gasto</span>
-              <span className="text-display-lg text-on-surface tabular-nums block">
-                €{currMonthData && monthsSoFar > 0 ? Math.round(avgMonthlyExpense * 12).toLocaleString("es") : 0}
+              <ValueBlur hidden={hideValues}>
+              <span className="text-display-lg text-on-surface tabular-nums val-euro block">
+                {currMonthData && monthsSoFar > 0 ? Math.round(avgMonthlyExpense * 12).toLocaleString("es") : 0}€
               </span>
+              </ValueBlur>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Row 3: Fixed/Variable */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        {/* Gasto Fijo */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-label-caps text-on-surface-variant uppercase">
+                {t("dashboard.fixed_expense")}
+              </span>
+              <ValueBlur hidden={hideValues}>
+              <span className="text-display-lg text-on-surface tabular-nums val-euro">
+                {(currMonthData?.fixed || 0).toLocaleString("es")}€
+              </span>
+              </ValueBlur>
+            </div>
+            <div className="p-md bg-secondary-container rounded-full text-on-secondary-container">
+              <span className="material-symbols-outlined">lock</span>
+            </div>
+          </div>
+          {avgMonthlyFixed > 0 && (
+            <div className="text-body-sm text-on-surface-variant tabular-nums">
+              {fixedPct <= 100 ? "↓" : "↑"} {Math.abs(fixedPct - 100).toFixed(0)}% vs media mensual
+            </div>
+          )}
+          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-primary h-full rounded-full"
+              style={{ width: `${Math.min(fixedPct, 100)}%` }}
+            />
+          </div>
+          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
+            {fixedPct.toFixed(0)}% del promedio mensual
+          </span>
+        </section>
+
+        {/* Gasto Variable */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-label-caps text-on-surface-variant uppercase">
+                {t("dashboard.variable_expense")}
+              </span>
+              <ValueBlur hidden={hideValues}>
+              <span className="text-display-lg text-on-surface tabular-nums val-euro">
+                {(currMonthData?.variable || 0).toLocaleString("es")}€
+              </span>
+              </ValueBlur>
+            </div>
+            <div className="p-md bg-tertiary-container rounded-full text-on-tertiary-container">
+              <span className="material-symbols-outlined">trending_up</span>
+            </div>
+          </div>
+          {prevMonthData && (
+            <div className="text-body-sm tabular-nums val-euro">
+              <ValueBlur hidden={hideValues}>
+              <span className={variableDelta <= 0 ? "text-positive" : "text-critical"}>
+                {variableDelta > 0 ? "↑" : "↓"} {Math.abs(variableDelta).toLocaleString("es")}€
+              </span>
+              </ValueBlur>
+              <span className="text-on-surface-variant"> vs mes anterior</span>
+            </div>
+          )}
+          <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-tertiary h-full rounded-full"
+              style={{ width: `${Math.min(variablePct, 100)}%` }}
+            />
+          </div>
+          <span className="text-label-caps text-[10px] text-on-surface-variant tabular-nums">
+            {variablePct.toFixed(0)}% del promedio mensual
+          </span>
+        </section>
+      </div>
+
+      {/* Row 4: Donut + BarChart */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
+          <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
+            {t("dashboard.total_assets")}
+          </h2>
+          <DonutChart
+            segments={donutSegments}
+            centerLabel={`${(totalAssets / 1000).toFixed(1)}K€`}
+            centerSubtext={t("dashboard.overview")}
+            size={192}
+            showValues
+            hidden={hideValues}
+          />
+        </section>
+
+        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
+          <BarChart
+            data={barData}
+            trendLabel={t("dashboard.monthly_evolution")}
+            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: ${(currMonthData?.expenses || 0).toLocaleString("es")}€`}
+            trendPositive={savingsPositive}
+            overlayLine={{
+              values: netLine,
+              color: "#10B981",
+            }}
+            hidden={hideValues}
+          />
+          <div className="flex items-center justify-between mt-sm">
+            <div className="flex items-center gap-lg">
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-1 h-2 bg-positive rounded-sm" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Neto</span>
+              </div>
             </div>
           </div>
         </section>
@@ -618,6 +659,7 @@ export default function DashboardPage() {
                       color: "#ffb786",
                     };
                   })}
+                  hidden={hideValues}
                 />
               ) : null}
             </div>
@@ -625,7 +667,7 @@ export default function DashboardPage() {
               <span className="text-body-sm text-on-surface-variant">Total 12 meses</span>
               <ValueBlur hidden={hideValues}>
               <span className="text-data-mono text-on-surface tabular-nums">
-                €{catMonthlyData ? catMonthlyData.reduce((a, b) => a + b, 0).toLocaleString("es") : ""}
+                {catMonthlyData ? catMonthlyData.reduce((a, b) => a + b, 0).toLocaleString("es") : ""}€
               </span>
               </ValueBlur>
             </div>

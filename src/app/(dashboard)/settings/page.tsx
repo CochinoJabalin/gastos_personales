@@ -8,6 +8,7 @@ export default function SettingsPage() {
 
   const subNavItems = [
     { href: "/settings", label: "General", icon: "settings" },
+    { href: "/settings/banks", label: "Bancos", icon: "account_balance" },
     { href: "/settings/mapping-rules", label: "Mapeos", icon: "rule" },
     { href: "/settings/import", label: "Importar", icon: "upload" },
   ];
@@ -69,20 +70,6 @@ export default function SettingsPage() {
             <span className="material-symbols-outlined text-on-primary-container">update</span>
           </div>
         </section>
-
-        {/* Link a Bancos */}
-        <Link
-          href="/banks"
-          className="md:col-span-4 bg-surface-container border border-outline-variant p-lg rounded-xl flex items-center justify-between hover:bg-surface-container-higher transition-colors"
-        >
-          <div className="flex flex-col gap-xs">
-            <span className="text-label-caps text-on-surface-variant uppercase">Bancos</span>
-            <span className="text-body-md text-primary font-semibold">Ir a gestión de bancos →</span>
-          </div>
-          <div className="w-12 h-12 bg-primary-container rounded-full flex items-center justify-center">
-            <span className="material-symbols-outlined text-on-primary-container">account_balance</span>
-          </div>
-        </Link>
       </div>
     </div>
   );
