@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -14,6 +15,17 @@ const navItems = [
 
 export default function TopAppBar() {
   const pathname = usePathname();
+  const [mobileOnlyNav, setMobileOnlyNav] = useState(false);
+
+  useEffect(() => {
+    const check = () => setMobileOnlyNav(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const quickEntryItem = navItems.find((i) => i.href === "/quick-entry")!;
+  const mobileNavItems = mobileOnlyNav ? [quickEntryItem] : navItems;
 
   return (
     <>
@@ -59,8 +71,8 @@ export default function TopAppBar() {
       </aside>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-low border-t border-surface-container-high">
-        <div className="flex items-center justify-around h-16 px-2">
-          {navItems.map((item) => {
+        <div className="flex items-center justify-center h-16 px-2">
+          {mobileNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

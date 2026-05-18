@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import TopAppBar from "@/components/TopAppBar";
 import AuthGuard from "@/components/AuthGuard";
 import BankOnboarding from "@/components/BankOnboarding";
@@ -12,8 +13,16 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [hasBanks, setHasBanks] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (window.innerWidth < 768 && pathname !== "/quick-entry") {
+      router.replace("/quick-entry");
+    }
+  }, [pathname, router]);
 
   function checkBanks() {
     setChecking(true);
