@@ -48,7 +48,6 @@ interface DetailView {
 }
 
 export default function MatrixPage() {
-  const [viewMode, setViewMode] = useState<"table" | "chart">("table");
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<MatrixData | null>(null);
   const [detailType, setDetailType] = useState<"Fijo" | "Variable">("Variable");
@@ -104,11 +103,10 @@ export default function MatrixPage() {
 
   const cifrasStyle = hideValues ? (
     <style>{`
-      .hide-cifras .tabular-nums {
+      .hide-cifras .val-euro {
         filter: blur(6px);
         opacity: 0.35;
         user-select: none;
-        pointer-events: none;
       }
     `}</style>
   ) : null;
@@ -147,7 +145,7 @@ export default function MatrixPage() {
             Análisis anual listo
           </p>
         </div>
-        <div className="flex items-center gap-sm">
+          <div className="flex items-center gap-sm">
           <button
             onClick={() => setHideValues(!hideValues)}
             className="flex items-center gap-xs px-md py-sm rounded-lg bg-surface-container-low border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors text-body-sm"
@@ -174,30 +172,6 @@ export default function MatrixPage() {
               <span className="material-symbols-outlined">chevron_right</span>
             </button>
           </div>
-          <div className="flex p-xs bg-surface-container-low rounded-xl border border-outline-variant">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-lg py-sm rounded-lg flex items-center gap-xs transition-all ${
-                viewMode === "table"
-                  ? "bg-secondary-container text-on-secondary-container font-semibold"
-                  : "text-on-surface-variant hover:bg-surface-container-high"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">table_chart</span>
-              <span className="text-label-caps">Tabla</span>
-            </button>
-            <button
-              onClick={() => setViewMode("chart")}
-              className={`px-lg py-sm rounded-lg flex items-center gap-xs transition-all ${
-                viewMode === "chart"
-                  ? "bg-secondary-container text-on-secondary-container font-semibold"
-                  : "text-on-surface-variant hover:bg-surface-container-high"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">show_chart</span>
-              <span className="text-label-caps">Gráfico</span>
-            </button>
-          </div>
         </div>
       </section>
 
@@ -207,12 +181,14 @@ export default function MatrixPage() {
           value={`${totalRow.net.toLocaleString("es")}€`}
           trend="+12.4% vs periodo anterior"
           positive
+          valueClassName="val-euro"
         />
         <StatCard
           label="Tasa de Gasto"
           value={`${totalRow.expenses.toLocaleString("es")}€`}
           trend="Alerta Crítica"
           critical
+          valueClassName="val-euro"
         />
         <StatCard
           label="Eficiencia"
@@ -222,8 +198,7 @@ export default function MatrixPage() {
         />
       </section>
 
-      {viewMode === "table" ? (
-        <section className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+      <section className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
           <div className="p-lg border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
             <h3 className="text-headline-md text-on-surface">Cuadrícula de Datos</h3>
           </div>
@@ -256,17 +231,17 @@ export default function MatrixPage() {
                     Ingresos
                   </td>
                   {months.map((m) => (
-                    <td key={m.month} className="p-sm text-primary tabular-nums">
+                    <td key={m.month} className="p-sm text-primary tabular-nums val-euro">
                       {m.income.toLocaleString("es")}€
                     </td>
                   ))}
-                  <td className="p-sm font-bold text-white tabular-nums">
+                  <td className="p-sm font-bold text-white tabular-nums val-euro">
                     {totalRow.income.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums">
+                  <td className="p-sm font-bold tabular-nums val-euro">
                     {avgRow.income.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
+                  <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
                     {prevAverages ? prevAverages.income.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
@@ -279,7 +254,7 @@ export default function MatrixPage() {
                     return (
                       <td
                         key={m.month}
-                        className={`p-sm tabular-nums ${
+                        className={`p-sm tabular-nums val-euro ${
                           isAlert ? "text-tertiary font-bold" : ""
                         }`}
                       >
@@ -287,13 +262,13 @@ export default function MatrixPage() {
                       </td>
                     );
                   })}
-                  <td className="p-sm font-bold text-white tabular-nums">
+                  <td className="p-sm font-bold text-white tabular-nums val-euro">
                     {totalRow.fixed.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums">
+                  <td className="p-sm font-bold tabular-nums val-euro">
                     {avgRow.fixed.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
+                  <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
                     {prevAverages ? prevAverages.fixed.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
@@ -306,7 +281,7 @@ export default function MatrixPage() {
                     return (
                       <td
                         key={m.month}
-                        className={`p-sm tabular-nums ${
+                        className={`p-sm tabular-nums val-euro ${
                           isHigh ? "text-tertiary font-bold" : ""
                         }`}
                       >
@@ -314,13 +289,13 @@ export default function MatrixPage() {
                       </td>
                     );
                   })}
-                  <td className="p-sm font-bold text-white tabular-nums">
+                  <td className="p-sm font-bold text-white tabular-nums val-euro">
                     {totalRow.variable.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums">
+                  <td className="p-sm font-bold tabular-nums val-euro">
                     {avgRow.variable.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-bold tabular-nums bg-surface-container-highest">
+                  <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
                     {prevAverages ? prevAverages.variable.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
@@ -331,20 +306,20 @@ export default function MatrixPage() {
                   {months.map((m) => (
                     <td
                       key={m.month}
-                      className={`p-sm tabular-nums ${
+                      className={`p-sm tabular-nums val-euro ${
                         m.net >= 0 ? "text-primary" : "text-tertiary"
                       }`}
                     >
                       {m.net.toLocaleString("es")}€
                     </td>
                   ))}
-                  <td className="p-sm font-extrabold text-white tabular-nums">
+                  <td className="p-sm font-extrabold text-white tabular-nums val-euro">
                     {totalRow.net.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-extrabold tabular-nums">
+                  <td className="p-sm font-extrabold tabular-nums val-euro">
                     {avgRow.net.toLocaleString("es")}€
                   </td>
-                  <td className="p-sm font-extrabold tabular-nums bg-surface-container-highest">
+                  <td className="p-sm font-extrabold tabular-nums val-euro bg-surface-container-highest">
                     {prevAverages ? prevAverages.net.toLocaleString("es") + "€" : "-"}
                   </td>
                 </tr>
@@ -352,47 +327,6 @@ export default function MatrixPage() {
             </table>
           </div>
         </section>
-      ) : (
-        <section className="bg-surface-container border border-outline-variant rounded-xl p-lg">
-          <h3 className="text-headline-md text-on-surface mb-lg">
-            Evolución Mensual
-          </h3>
-          <div className="h-64 flex gap-2">
-            {months.map((m) => {
-              const maxVal = Math.max(...months.map((x) => x.income), 1);
-              const incomeH = (m.income / maxVal) * 100;
-              const expenseH = (m.expenses / maxVal) * 100;
-              return (
-                <div key={m.month} className="flex-1 flex flex-col items-center gap-1 h-full">
-                  <div className="flex-1 w-full flex flex-col justify-end">
-                    <div
-                      className="w-full bg-primary/60 rounded-t-sm transition-all"
-                      style={{ height: `${incomeH}%` }}
-                    />
-                    <div
-                      className="w-full bg-tertiary/60 rounded-t-sm transition-all"
-                      style={{ height: `${expenseH}%` }}
-                    />
-                  </div>
-                  <span className="text-label-caps text-[9px] text-on-surface-variant">
-                    {m.label.substring(0, 3)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-lg mt-md">
-            <div className="flex items-center gap-xs">
-              <span className="w-3 h-3 rounded-sm bg-primary/60" />
-              <span className="text-body-sm text-on-surface-variant">Ingresos</span>
-            </div>
-            <div className="flex items-center gap-xs">
-              <span className="w-3 h-3 rounded-sm bg-tertiary/60" />
-              <span className="text-body-sm text-on-surface-variant">Gastos</span>
-            </div>
-          </div>
-        </section>
-      )}
 
       <section className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
         <div className="p-lg border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
@@ -453,7 +387,7 @@ export default function MatrixPage() {
                       <td className="p-sm font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">
                         {g.group}
                       </td>
-                      {g.months.map((m, i) => (
+                       {g.months.map((m, i) => (
                         <td
                           key={i}
                           className={`p-sm tabular-nums cursor-pointer transition-colors ${
@@ -463,16 +397,16 @@ export default function MatrixPage() {
                           }`}
                           onClick={() => m > 0 && openDetail(g.group, i, m)}
                         >
-                          {m > 0 ? `${m.toLocaleString("es")}€` : "—"}
+                          <span className="val-euro">{m > 0 ? `${m.toLocaleString("es")}€` : "—"}</span>
                         </td>
                       ))}
-                      <td className="p-sm font-bold text-white tabular-nums">
+                      <td className="p-sm font-bold text-white tabular-nums val-euro">
                         {g.total.toLocaleString("es")}€
                       </td>
-                      <td className="p-sm font-bold tabular-nums">
+                      <td className="p-sm font-bold tabular-nums val-euro">
                         {avg.toLocaleString("es")}€
                       </td>
-                      <td className="p-sm text-on-surface-variant tabular-nums">
+                      <td className="p-sm text-on-surface-variant tabular-nums val-euro">
                         {prevAvgByGroup.has(g.group)
                           ? `${prevAvgByGroup.get(g.group)!.toLocaleString("es")}€`
                           : "—"}

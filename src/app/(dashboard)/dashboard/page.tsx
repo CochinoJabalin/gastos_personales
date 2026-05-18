@@ -293,9 +293,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">{t("dashboard.savings_rate")}</p>
             </div>
-            <ValueBlur hidden={hideValues}>
             <p className={`text-headline-sm font-mono ${savingsPositive ? "text-positive" : "text-critical"}`}>{savingsRate.toFixed(1)}%</p>
-            </ValueBlur>
           </div>
           <div className="flex flex-col gap-xs">
             <div className="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
@@ -329,23 +327,17 @@ export default function DashboardPage() {
                     className="transition-all duration-700"
                   />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <ValueBlur hidden={hideValues}>
+                  <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-[8px] font-bold tabular-nums" style={{ color: healthColor }}>{healthScore}</span>
-                  </ValueBlur>
-                </div>
+                  </div>
               </div>
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Salud Financiera</p>
             </div>
             <p className="text-body-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
           </div>
           <div className="flex flex-col gap-1 text-[9px]">
-            <ValueBlur hidden={hideValues}>
             <span className="text-on-surface-variant">{positiveMonths}/{monthsWithData.length} meses positivos</span>
-            </ValueBlur>
-            <ValueBlur hidden={hideValues}>
             <span className="text-on-surface-variant">{savingsRate.toFixed(0)}% tasa de ahorro</span>
-            </ValueBlur>
           </div>
         </section>
 
@@ -411,8 +403,7 @@ export default function DashboardPage() {
                 style={{ width: `${yearProgress}%` }}
               />
             </div>
-            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% del año</span>
-            <div className="flex gap-md text-[9px] mt-1">
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% del año</span>            <div className="flex gap-md text-[9px] mt-1">
               <span className="text-on-surface-variant">Ingresos: <ValueBlur hidden={hideValues}><span className="text-positive tabular-nums val-euro">{(matrix?.yearly.income || 0).toLocaleString("es")}€</span></ValueBlur></span>
             </div>
             <div className="flex gap-md text-[9px]">

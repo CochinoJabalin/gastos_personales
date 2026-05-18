@@ -14,6 +14,7 @@ interface StatCardProps {
   progress?: number;
   progressColor?: string;
   onClick?: () => void;
+  valueClassName?: string;
 }
 
 export default function StatCard({
@@ -27,6 +28,7 @@ export default function StatCard({
   progress,
   progressColor,
   onClick,
+  valueClassName = "",
 }: StatCardProps) {
   const trendColor = critical
     ? "text-critical"
@@ -51,7 +53,7 @@ export default function StatCard({
           </div>
         )}
       </div>
-      <span className="text-display-lg text-on-surface tabular-nums">{value}</span>
+      <span className={`text-display-lg text-on-surface tabular-nums ${valueClassName}`}>{value}</span>
       {trend && (
         <span className={`text-body-sm ${trendColor}`}>{trend}</span>
       )}
