@@ -88,6 +88,8 @@ export default function CrowdlendingTab() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [detailInv, setDetailInv] = useState<Investment | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [extendInv, setExtendInv] = useState<Investment | null>(null);
+  const [extensionMonths, setExtensionMonths] = useState("");
 
   const [newForm, setNewForm] = useState({
     descripcion: "",
@@ -108,32 +110,31 @@ export default function CrowdlendingTab() {
     comentarios: "",
   });
 
-  function fetchAll() {
+  async function fetchAll() {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (originadorFilter) params.set("originador", originadorFilter);
 
-    Promise.all([
+    const [invData, sumData, banksData] = await Promise.all([
       fetch(`/api/investments/crowdlending?${params}`).then((r) => r.json()),
       fetch("/api/investments/crowdlending/summary").then((r) => r.json()),
       fetch("/api/banks").then((r) => r.json()),
-    ])
-      .then(([invData, sumData, banksData]) => {
-        setInvestments(invData);
-        setSummary(sumData);
-        const allAccounts: Account[] = [];
-        for (const bank of banksData) {
-          for (const acc of bank.accounts) {
-            allAccounts.push({ id: acc.id, account_label: `${bank.bank_name} - ${acc.account_label}` });
-          }
-        }
-        setAccounts(allAccounts);
-      })
-      .finally(() => setLoading(false));
+    ]);
+
+    setInvestments(invData);
+    setSummary(sumData);
+    const allAccounts: Account[] = [];
+    for (const bank of banksData) {
+      for (const acc of bank.accounts) {
+        allAccounts.push({ id: acc.id, account_label: `${bank.bank_name} - ${acc.account_label}` });
+      }
+    }
+    setAccounts(allAccounts);
+    setLoading(false);
   }
 
   useEffect(() => {
-    fetchAll();
+    fetchAll().catch(() => setLoading(false));
   }, [statusFilter, originadorFilter]);
 
   async function createInvestment() {
@@ -163,7 +164,7 @@ export default function CrowdlendingTab() {
         porcentaje_beneficio: "",
         account_id: "",
       });
-      fetchAll();
+      await fetchAll();
     }
   }
 
@@ -192,10 +193,9 @@ export default function CrowdlendingTab() {
         capital: "",
         comentarios: "",
       });
-      fetchAll();
-      // Refresh detail
-      const updated = await fetch(`/api/investments/crowdlending/${detailInv.id}`).then((r) => r.json());
-      setDetailInv(updated);
+      await fetchAll();
+      const updated = investments.find((i) => i.id === detailInv!.id);
+      if (updated) setDetailInv(updated);
     }
   }
 
@@ -203,7 +203,7 @@ export default function CrowdlendingTab() {
     if (!confirm(t("investments.crowdlending.confirm_delete_investment"))) return;
     await fetch(`/api/investments/crowdlending/${id}`, { method: "DELETE" });
     setDetailInv(null);
-    fetchAll();
+    await fetchAll();
   }
 
   async function deletePayment(investmentId: string, paymentId: string) {
@@ -211,9 +211,9 @@ export default function CrowdlendingTab() {
     await fetch(`/api/investments/crowdlending/${investmentId}/payments/${paymentId}`, {
       method: "DELETE",
     });
-    const updated = await fetch(`/api/investments/crowdlending/${investmentId}`).then((r) => r.json());
-    setDetailInv(updated);
-    fetchAll();
+    await fetchAll();
+    const updated = investments.find((i) => i.id === investmentId);
+    if (updated) setDetailInv(updated);
   }
 
   async function markMatured(inv: Investment) {
@@ -224,10 +224,29 @@ export default function CrowdlendingTab() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    fetchAll();
+    await fetchAll();
     if (detailInv?.id === inv.id) {
-      const updated = await fetch(`/api/investments/crowdlending/${inv.id}`).then((r) => r.json());
-      setDetailInv(updated);
+      const updated = investments.find((i) => i.id === inv.id);
+      if (updated) setDetailInv(updated);
+    }
+  }
+
+  async function extendInvestment(inv: Investment) {
+    if (!extensionMonths) return;
+    await fetch(`/api/investments/crowdlending/${inv.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "EXTENDED",
+        meses_extension: parseInt(extensionMonths),
+      }),
+    });
+    setExtendInv(null);
+    setExtensionMonths("");
+    await fetchAll();
+    if (detailInv?.id === inv.id) {
+      const updated = investments.find((i) => i.id === inv.id);
+      if (updated) setDetailInv(updated);
     }
   }
 
@@ -246,7 +265,7 @@ export default function CrowdlendingTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-xl">
-        <span className="text-on-surface-variant">{t("quick_entry.description_hint")}</span>
+        <span className="text-on-surface-variant">{t("investments.crowdlending.loading")}</span>
       </div>
     );
   }
@@ -267,8 +286,8 @@ export default function CrowdlendingTab() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-gutter">
-        <div className="flex bg-surface-container border border-[#2D3748] rounded-lg p-xs">
-          {["", "ACTIVE", "MATURED"].map((s) => (
+        <div className="flex bg-surface-container border border-outline-variant rounded-lg p-xs">
+          {["", "ACTIVE", "EXTENDED", "MATURED"].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -278,7 +297,10 @@ export default function CrowdlendingTab() {
                   : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              {s === "" ? t("investments.crowdlending.filters_all") : s === "ACTIVE" ? t("investments.crowdlending.filters_active") : t("investments.crowdlending.filters_matured")}
+              {s === "" ? t("investments.crowdlending.filters_all")
+                : s === "ACTIVE" ? t("investments.crowdlending.filters_active")
+                : s === "EXTENDED" ? t("investments.crowdlending.filters_extended")
+                : t("investments.crowdlending.filters_matured")}
             </button>
           ))}
         </div>
@@ -286,7 +308,7 @@ export default function CrowdlendingTab() {
         <select
           value={originadorFilter}
           onChange={(e) => setOriginadorFilter(e.target.value)}
-          className="bg-surface-container border border-[#2D3748] rounded-lg px-md py-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"
+          className="bg-surface-container border border-outline-variant rounded-lg px-md py-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"
         >
           <option value="">{t("investments.crowdlending.originador_placeholder")}</option>
           {ORIGINADORES.map((o) => (
@@ -306,7 +328,7 @@ export default function CrowdlendingTab() {
       </div>
 
       {/* Investments Table */}
-      <div className="bg-surface-container border border-[#2D3748] rounded-xl overflow-hidden">
+      <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
         {investments.length === 0 ? (
           <div className="p-xl text-center text-on-surface-variant text-body-md">
             {t("investments.crowdlending.no_investments")}
@@ -315,7 +337,7 @@ export default function CrowdlendingTab() {
           <div className="overflow-x-auto">
             <table className="w-full text-body-sm">
               <thead>
-                <tr className="border-b border-[#2D3748] text-label-caps text-on-surface-variant uppercase">
+                <tr className="border-b border-outline-variant text-label-caps text-on-surface-variant uppercase">
                   <th className="text-left p-md">{t("investments.crowdlending.description")}</th>
                   <th className="text-left p-md">{t("investments.crowdlending.originador")}</th>
                   <th className="text-left p-md">{t("investments.crowdlending.start_date")}</th>
@@ -332,7 +354,7 @@ export default function CrowdlendingTab() {
                 {investments.map((inv) => (
                   <tr
                     key={inv.id}
-                    className="border-b border-[#2D3748] hover:bg-surface-dim/50 transition-colors cursor-pointer"
+                    className="border-b border-outline-variant hover:bg-surface-dim/50 transition-colors cursor-pointer"
                     onClick={() => setDetailInv(inv)}
                   >
                     <td className="p-md font-medium text-on-surface">{inv.descripcion}</td>
@@ -356,6 +378,15 @@ export default function CrowdlendingTab() {
                     </td>
                     <td className="p-md text-center">
                       <div className="flex items-center justify-center gap-xs">
+                        {inv.status === "ACTIVE" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setExtendInv(inv); }}
+                            className="p-xs text-[#F59E0B] hover:bg-[#F59E0B]/10 rounded transition-colors"
+                            title={t("investments.crowdlending.mark_extended")}
+                          >
+                            <span className="material-symbols-outlined text-lg">extend</span>
+                          </button>
+                        )}
                         {inv.status !== "MATURED" && (
                           <button
                             onClick={(e) => { e.stopPropagation(); markMatured(inv); }}
@@ -385,7 +416,7 @@ export default function CrowdlendingTab() {
       {/* New Investment Modal */}
       {showNewForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowNewForm(false)}>
-          <div className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-xl w-full max-w-lg mx-md space-y-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-xl w-full max-w-lg mx-md space-y-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-headline-md text-on-surface">{t("investments.crowdlending.new_investment")}</h2>
               <button onClick={() => setShowNewForm(false)} className="text-on-surface-variant hover:text-on-surface">
@@ -399,7 +430,7 @@ export default function CrowdlendingTab() {
                 <input
                   value={newForm.descripcion}
                   onChange={(e) => setNewForm({ ...newForm, descripcion: e.target.value })}
-                  className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -409,7 +440,7 @@ export default function CrowdlendingTab() {
                   <select
                     value={newForm.originador}
                     onChange={(e) => setNewForm({ ...newForm, originador: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                   >
                     {ORIGINADORES.map((o) => (
                       <option key={o} value={o}>{o}</option>
@@ -436,7 +467,7 @@ export default function CrowdlendingTab() {
                     type="date"
                     value={newForm.fecha_inicio}
                     onChange={(e) => setNewForm({ ...newForm, fecha_inicio: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -445,7 +476,7 @@ export default function CrowdlendingTab() {
                     type="number"
                     value={newForm.meses_iniciales}
                     onChange={(e) => setNewForm({ ...newForm, meses_iniciales: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                     min="1"
                   />
                 </div>
@@ -458,7 +489,7 @@ export default function CrowdlendingTab() {
                     type="number"
                     value={newForm.cantidad}
                     onChange={(e) => setNewForm({ ...newForm, cantidad: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                     min="0"
                     step="0.01"
                   />
@@ -470,7 +501,7 @@ export default function CrowdlendingTab() {
                       type="number"
                       value={newForm.porcentaje_beneficio}
                       onChange={(e) => setNewForm({ ...newForm, porcentaje_beneficio: e.target.value })}
-                      className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                      className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                       min="0"
                       step="0.1"
                     />
@@ -484,7 +515,7 @@ export default function CrowdlendingTab() {
                 <select
                   value={newForm.account_id}
                   onChange={(e) => setNewForm({ ...newForm, account_id: e.target.value })}
-                  className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                 >
                   <option value="">Sin cuenta bancaria</option>
                   {accounts.map((a) => (
@@ -515,7 +546,7 @@ export default function CrowdlendingTab() {
       {/* Investment Detail Modal */}
       {detailInv && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailInv(null)}>
-          <div className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-xl w-full max-w-3xl mx-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-xl w-full max-w-3xl mx-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-lg">
               <div>
                 <h2 className="text-headline-md text-on-surface">{detailInv.descripcion}</h2>
@@ -589,10 +620,10 @@ export default function CrowdlendingTab() {
             {detailInv.payments.length === 0 ? (
               <p className="text-body-sm text-on-surface-variant py-md">{t("investments.crowdlending.no_payments")}</p>
             ) : (
-              <div className="overflow-x-auto border border-[#2D3748] rounded-lg">
+              <div className="overflow-x-auto border border-outline-variant rounded-lg">
                 <table className="w-full text-body-sm">
                   <thead>
-                    <tr className="border-b border-[#2D3748] text-label-caps text-on-surface-variant uppercase">
+                    <tr className="border-b border-outline-variant text-label-caps text-on-surface-variant uppercase">
                       <th className="text-left p-md">{t("investments.crowdlending.payment_date")}</th>
                       <th className="text-right p-md">{t("investments.crowdlending.total_amount")}</th>
                       <th className="text-right p-md">{t("investments.crowdlending.interest_part")}</th>
@@ -603,7 +634,7 @@ export default function CrowdlendingTab() {
                   </thead>
                   <tbody>
                     {detailInv.payments.map((p) => (
-                      <tr key={p.id} className="border-b border-[#2D3748]">
+                      <tr key={p.id} className="border-b border-outline-variant">
                         <td className="p-md text-on-surface-variant">{formatDate(p.fecha)}</td>
                         <td className="p-md text-right tabular-nums text-on-surface">{formatEur(p.importe)}</td>
                         <td className="p-md text-right tabular-nums text-positive">{formatEur(p.intereses)}</td>
@@ -625,7 +656,16 @@ export default function CrowdlendingTab() {
             )}
 
             {detailInv.status !== "MATURED" && (
-              <div className="flex justify-end mt-lg">
+              <div className="flex justify-end gap-sm mt-lg">
+                {detailInv.status === "ACTIVE" && (
+                  <button
+                    onClick={() => { setDetailInv(null); setExtendInv(detailInv); }}
+                    className="flex items-center gap-xs bg-[#F59E0B]/10 text-[#F59E0B] px-lg py-sm rounded-lg text-body-sm font-medium hover:bg-[#F59E0B]/20 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-lg">extend</span>
+                    {t("investments.crowdlending.mark_extended")}
+                  </button>
+                )}
                 <button
                   onClick={() => markMatured(detailInv)}
                   className="flex items-center gap-xs bg-positive/10 text-positive px-lg py-sm rounded-lg text-body-sm font-medium hover:bg-positive/20 transition-colors"
@@ -642,7 +682,7 @@ export default function CrowdlendingTab() {
       {/* Register Payment Modal */}
       {showPaymentForm && detailInv && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowPaymentForm(false)}>
-          <div className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-xl w-full max-w-md mx-md space-y-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-xl w-full max-w-md mx-md space-y-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-headline-md text-on-surface">{t("investments.crowdlending.register_payment")}</h2>
               <button onClick={() => setShowPaymentForm(false)} className="text-on-surface-variant hover:text-on-surface">
@@ -657,7 +697,7 @@ export default function CrowdlendingTab() {
                   type="date"
                   value={paymentForm.fecha}
                   onChange={(e) => setPaymentForm({ ...paymentForm, fecha: e.target.value })}
-                  className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                 />
               </div>
               <div>
@@ -667,7 +707,7 @@ export default function CrowdlendingTab() {
                     type="number"
                     value={paymentForm.importe}
                     onChange={(e) => setPaymentForm({ ...paymentForm, importe: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                     min="0"
                     step="0.01"
                   />
@@ -681,7 +721,7 @@ export default function CrowdlendingTab() {
                     type="number"
                     value={paymentForm.intereses}
                     onChange={(e) => setPaymentForm({ ...paymentForm, intereses: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                     min="0"
                     step="0.01"
                   />
@@ -692,7 +732,7 @@ export default function CrowdlendingTab() {
                     type="number"
                     value={paymentForm.capital}
                     onChange={(e) => setPaymentForm({ ...paymentForm, capital: e.target.value })}
-                    className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                     min="0"
                     step="0.01"
                   />
@@ -703,7 +743,7 @@ export default function CrowdlendingTab() {
                 <input
                   value={paymentForm.comentarios}
                   onChange={(e) => setPaymentForm({ ...paymentForm, comentarios: e.target.value })}
-                  className="w-full bg-surface-dim border border-[#2D3748] rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -718,6 +758,47 @@ export default function CrowdlendingTab() {
               <button
                 onClick={createPayment}
                 className="px-lg py-sm rounded-lg text-body-sm bg-primary text-on-primary font-medium hover:brightness-110 transition-all"
+              >
+                {t("investments.crowdlending.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extend Term Modal */}
+      {extendInv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setExtendInv(null); setExtensionMonths(""); }}>
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-xl w-full max-w-md mx-md space-y-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-headline-md text-on-surface">{t("investments.crowdlending.extend_term")}</h2>
+              <button onClick={() => { setExtendInv(null); setExtensionMonths(""); }} className="text-on-surface-variant hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-body-sm text-on-surface-variant">{extendInv.descripcion}</p>
+            <div>
+              <label className="text-label-caps text-on-surface-variant uppercase block mb-xs">{t("investments.crowdlending.extension_months")}</label>
+              <input
+                type="number"
+                value={extensionMonths}
+                onChange={(e) => setExtensionMonths(e.target.value)}
+                className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
+                min="1"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-sm pt-sm">
+              <button
+                onClick={() => { setExtendInv(null); setExtensionMonths(""); }}
+                className="px-lg py-sm rounded-lg text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+              >
+                {t("investments.crowdlending.cancel")}
+              </button>
+              <button
+                onClick={() => extendInvestment(extendInv)}
+                disabled={!extensionMonths}
+                className="px-lg py-sm rounded-lg text-body-sm bg-[#F59E0B] text-black font-medium hover:brightness-110 transition-all disabled:opacity-50"
               >
                 {t("investments.crowdlending.save")}
               </button>

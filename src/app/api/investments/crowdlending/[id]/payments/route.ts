@@ -70,7 +70,7 @@ export async function POST(
       data: {
         concept: `Pago Crownlending: ${investment.descripcion}`,
         amount,
-        bank_id: investment.account.bank_id,
+        bank_id: investment.account!.bank_id,
         account_id: investment.account_id,
         group: "Inversión",
         type: "Variable",
@@ -87,7 +87,7 @@ export async function POST(
     });
 
     await prisma.bank.update({
-      where: { id: investment.account.bank_id },
+      where: { id: investment.account!.bank_id },
       data: { balance: { increment: amount } },
     });
   }
