@@ -32,22 +32,133 @@ model Account {
   last_interest_date DateTime?
   created_at        DateTime       @default(now())
   transactions      Transaction[]
+  crowdlending_investments CrowdlendingInvestment[]
+  holdings          InvestmentHolding[]
+}
+
+model CrowdlendingInvestment {
+  id                  String        @id @default(uuid())
+  account_id          String?
+  account             Account?      @relation(fields: [account_id], references: [id])
+  fecha_inicio        DateTime
+  fecha_fin           DateTime?
+  descripcion         String
+  meses_iniciales     Int
+  meses_extension     Int?
+  cantidad            Float
+  porcentaje_beneficio Float
+  roi                 Float?
+  beneficios_brutos   Float?
+  impuestos           Float?
+  beneficios_netos    Float?
+  originador          String
+  tipo_shared         Boolean       @default(false)
+  status              String        @default("ACTIVE")
+  created_at          DateTime      @default(now())
+  payments            CrowdlendingPayment[]
+}
+
+model CrowdlendingPayment {
+  id                      String                  @id @default(uuid())
+  investment_id           String
+  investment              CrowdlendingInvestment  @relation(fields: [investment_id], references: [id])
+  fecha                   DateTime
+  importe                 Float
+  intereses               Float
+  capital                 Float
+  created_transaction_id  String?
+  comentarios             String?
+  created_at              DateTime                @default(now())
 }
 
 model Transaction {
-  id               String    @id @default(uuid())
-  timestamp        DateTime  @default(now())
-  concept          String
-  amount           Float
-  bank_id          String
-  bank             Bank      @relation(fields: [bank_id], references: [id])
-  account_id       String?
-  account          Account?  @relation(fields: [account_id], references: [id])
-  group            String
-  type             String
-  is_recurring     Boolean   @default(false)
-  recurring_period String?
-  comentarios      String?
+  id                        String    @id @default(uuid())
+  timestamp                 DateTime  @default(now())
+  concept                   String
+  amount                    Float
+  bank_id                   String
+  bank                      Bank      @relation(fields: [bank_id], references: [id])
+  account_id                String?
+  account                   Account?  @relation(fields: [account_id], references: [id])
+  group                     String
+  type                      String
+  is_recurring              Boolean   @default(false)
+  recurring_period          String?
+  comentarios               String?
+  investment_transaction_id String?
+  crowdlending_investment_id String?
+}
+
+model InvestmentInstrument {
+  id                String   @id @default(uuid())
+  ticker            String   @unique
+  name              String
+  type              String
+  currency          String   @default("EUR")
+  current_price     Float?
+  exchange_rate_to_eur Float? @default(1)
+  price_updated_at  DateTime?
+  sector            String?
+  created_at        DateTime @default(now())
+  holdings          InvestmentHolding[]
+  transactions      InvestmentTransaction[]
+  lots              InvestmentLot[]
+}
+
+model InvestmentHolding {
+  id                   String   @id @default(uuid())
+  instrument_id        String
+  instrument           InvestmentInstrument @relation(fields: [instrument_id], references: [id])
+  account_id           String?
+  account              Account? @relation(fields: [account_id], references: [id])
+  total_cantidad       Float    @default(0)
+  total_invertido_original Float @default(0)
+  total_invertido_eur  Float    @default(0)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @default(now())
+  transactions         InvestmentTransaction[]
+  lots                 InvestmentLot[]
+}
+
+model InvestmentLot {
+  id                String   @id @default(uuid())
+  holding_id        String?
+  holding           InvestmentHolding? @relation(fields: [holding_id], references: [id])
+  instrument_id     String
+  instrument        InvestmentInstrument @relation(fields: [instrument_id], references: [id])
+  cantidad_original Float
+  cantidad_restante Float
+  precio_unitario   Float
+  total_original    Float
+  total_eur         Float
+  fecha_compra      DateTime
+  divisa            String
+  exchange_rate_compra Float
+  created_at        DateTime @default(now())
+}
+
+model InvestmentTransaction {
+  id                    String   @id @default(uuid())
+  instrument_id         String
+  instrument            InvestmentInstrument @relation(fields: [instrument_id], references: [id])
+  holding_id            String?
+  holding               InvestmentHolding? @relation(fields: [holding_id], references: [id])
+  type                  String
+  cantidad              Float
+  precio_unitario       Float
+  importe_total         Float
+  importe_eur           Float
+  divisa                String
+  exchange_rate         Float
+  date                  DateTime
+  is_recurring          Boolean  @default(false)
+  recurring_period      String?
+  dividend_reinvested   Boolean  @default(false)
+  plusvalia_realizada_orig Float?
+  plusvalia_realizada_eur  Float?
+  comentarios           String?
+  created_transaction_id String?
+  created_at            DateTime @default(now())
 }
 
 model MappingRule {
