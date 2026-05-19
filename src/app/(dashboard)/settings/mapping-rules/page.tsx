@@ -17,11 +17,6 @@ interface Bank {
   bank_name: string;
 }
 
-const CATEGORIES = [
-  "Ingresos", "Ocio", "Compras", "JustEat", "Streaming",
-  "Ropa", "Hogar", "Supermercado", "Transporte", "Salud",
-  "Educación", "Servicios",
-];
 const TYPES = ["Fijo", "Variable"];
 
 export default function MappingRulesSettingsPage() {
@@ -33,7 +28,14 @@ export default function MappingRulesSettingsPage() {
   const [editForm, setEditForm] = useState({ pattern: "", group: "", type: "", bank_id: "" });
   const [filter, setFilter] = useState("");
   const [showAddRule, setShowAddRule] = useState(false);
-  const [newRule, setNewRule] = useState({ pattern: "", group: "Ocio", type: "Variable", bank_id: "" });
+  const [newRule, setNewRule] = useState({ pattern: "", group: "", type: "Variable", bank_id: "" });
+  const [conflict, setConflict] = useState<{
+    existing: { id: string; pattern: string; default_group: string; default_type: string; default_bank_id: string | null };
+    incoming: { pattern: string; default_group: string; default_type: string; default_bank_id: string | null };
+  } | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const subNavItems = [
     { href: "/settings", label: "General", icon: "settings" },
@@ -46,9 +48,11 @@ export default function MappingRulesSettingsPage() {
     Promise.all([
       fetch("/api/mapping-rules").then(r => r.json()),
       fetch("/api/banks").then(r => r.json()),
-    ]).then(([rulesData, banksData]) => {
+      fetch("/api/categories").then(r => r.json()),
+    ]).then(([rulesData, banksData, cats]) => {
       setRules(Array.isArray(rulesData) ? rulesData : rulesData.rules || []);
       setBanks(Array.isArray(banksData) ? banksData : []);
+      setCategories(Array.isArray(cats) ? cats.sort() : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -91,7 +95,7 @@ export default function MappingRulesSettingsPage() {
   }
 
   async function addRule() {
-    await fetch("/api/mapping-rules", {
+    const res = await fetch("/api/mapping-rules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -101,11 +105,40 @@ export default function MappingRulesSettingsPage() {
         default_bank_id: newRule.bank_id || null,
       }),
     });
+    const data = await res.json();
+
+    if (res.status === 409 && data.status === "conflicto") {
+      setConflict({ existing: data.existing, incoming: data.incoming });
+      return;
+    }
+
     setShowAddRule(false);
     setNewRule({ pattern: "", group: "Ocio", type: "Variable", bank_id: "" });
-    const res = await fetch("/api/mapping-rules");
-    const data = await res.json();
-    setRules(Array.isArray(data) ? data : data.rules || []);
+    const r = await fetch("/api/mapping-rules");
+    const d = await r.json();
+    setRules(Array.isArray(d) ? d : d.rules || []);
+  }
+
+  async function resolveConflict(useIncoming: boolean) {
+    if (!conflict) return;
+    if (useIncoming) {
+      await fetch(`/api/mapping-rules/${conflict.existing.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pattern: conflict.incoming.pattern,
+          default_group: conflict.incoming.default_group,
+          default_type: conflict.incoming.default_type,
+          default_bank_id: conflict.incoming.default_bank_id,
+        }),
+      });
+    }
+    setConflict(null);
+    setShowAddRule(false);
+    setNewRule({ pattern: "", group: "Ocio", type: "Variable", bank_id: "" });
+    const r = await fetch("/api/mapping-rules");
+    const d = await r.json();
+    setRules(Array.isArray(d) ? d : d.rules || []);
   }
 
   const filteredRules = rules.filter(r =>
@@ -135,13 +168,15 @@ export default function MappingRulesSettingsPage() {
 
       <div className="flex justify-between items-center">
         <h1 className="text-headline-md text-on-surface">Reglas de Mapeo</h1>
-        <button
-          onClick={() => setShowAddRule(true)}
-          className="flex items-center gap-2 px-lg py-md bg-black text-white rounded-lg text-body-sm hover:bg-black/80"
-        >
-          <span className="material-symbols-outlined text-lg">add</span>
-          Nueva Regla
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddRule(true)}
+            className="flex items-center gap-2 px-lg py-md bg-black text-white rounded-lg text-body-sm hover:bg-black/80"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>
+            Nueva Regla
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -154,7 +189,7 @@ export default function MappingRulesSettingsPage() {
         />
       </div>
 
-      {showAddRule && (
+      {showAddRule && !conflict && (
         <div className="bg-surface-container border border-outline-variant rounded-xl p-lg">
           <h3 className="text-headline-md text-on-surface mb-lg">Nueva Regla</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-md">
@@ -165,15 +200,54 @@ export default function MappingRulesSettingsPage() {
               onChange={e => setNewRule({...newRule, pattern: e.target.value})}
               className="bg-surface-container-high rounded px-3 py-2 text-body-sm text-on-surface border border-outline-variant"
             />
-            <select
-              value={newRule.group}
-              onChange={e => setNewRule({...newRule, group: e.target.value})}
-              className="bg-surface-container-high rounded px-3 py-2 text-body-sm text-on-surface border border-outline-variant"
-            >
-              {CATEGORIES.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            {showNewCategory ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nueva categoría"
+                  value={newCategoryName}
+                  onChange={e => setNewCategoryName(e.target.value)}
+                  className="bg-surface-container-high rounded px-3 py-2 text-body-sm text-on-surface border border-outline-variant flex-1"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    if (newCategoryName.trim()) {
+                      setNewRule({...newRule, group: newCategoryName.trim()});
+                      setShowNewCategory(false);
+                      setNewCategoryName("");
+                    }
+                  }}
+                  className="px-lg py-md bg-primary text-on-primary rounded-lg text-body-sm"
+                >
+                  Usar
+                </button>
+                <button
+                  onClick={() => { setShowNewCategory(false); setNewCategoryName(""); }}
+                  className="px-lg py-md bg-surface-container-high text-on-surface-variant rounded-lg text-body-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <select
+                value={newRule.group}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setShowNewCategory(true);
+                  } else {
+                    setNewRule({...newRule, group: e.target.value});
+                  }
+                }}
+                className="bg-surface-container-high rounded px-3 py-2 text-body-sm text-on-surface border border-outline-variant"
+              >
+                <option value="" disabled>Selecciona categoría</option>
+                {categories.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value="__new__">➕ Crear nueva...</option>
+              </select>
+            )}
             <select
               value={newRule.type}
               onChange={e => setNewRule({...newRule, type: e.target.value})}
@@ -184,8 +258,39 @@ export default function MappingRulesSettingsPage() {
               ))}
             </select>
             <div className="flex gap-2">
-              <button onClick={addRule} className="px-lg py-md bg-primary text-on-primary rounded-lg text-body-sm">Guardar</button>
+              <button onClick={addRule} disabled={!newRule.group} className="px-lg py-md bg-primary text-on-primary rounded-lg text-body-sm disabled:opacity-50">Guardar</button>
               <button onClick={() => setShowAddRule(false)} className="px-lg py-md bg-surface-container-high text-on-surface-variant rounded-lg text-body-sm">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conflict && (
+        <div className="bg-surface-container border border-outline-variant rounded-xl p-lg">
+          <h3 className="text-headline-md text-on-surface mb-lg">Conflicto: patrón "{conflict.existing.pattern}" ya existe</h3>
+          <p className="text-body-sm text-on-surface-variant mb-lg">La categoría o el tipo no coinciden. Elige qué valores conservar:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+            <div className="border border-outline-variant rounded-lg p-lg">
+              <h4 className="text-label-caps text-on-surface-variant uppercase mb-md">Existente</h4>
+              <p className="text-body-md text-on-surface">Categoría: <strong>{conflict.existing.default_group}</strong></p>
+              <p className="text-body-md text-on-surface">Tipo: <strong>{conflict.existing.default_type}</strong></p>
+              <button
+                onClick={() => resolveConflict(false)}
+                className="mt-md px-lg py-md bg-surface-container-high text-on-surface rounded-lg text-body-sm hover:bg-surface-container-high/80"
+              >
+                Mantener existente
+              </button>
+            </div>
+            <div className="border border-outline-variant rounded-lg p-lg">
+              <h4 className="text-label-caps text-on-surface-variant uppercase mb-md">Nueva</h4>
+              <p className="text-body-md text-on-surface">Categoría: <strong>{conflict.incoming.default_group}</strong></p>
+              <p className="text-body-md text-on-surface">Tipo: <strong>{conflict.incoming.default_type}</strong></p>
+              <button
+                onClick={() => resolveConflict(true)}
+                className="mt-md px-lg py-md bg-primary text-on-primary rounded-lg text-body-sm hover:bg-primary/80"
+              >
+                Usar nueva
+              </button>
             </div>
           </div>
         </div>
@@ -233,7 +338,7 @@ export default function MappingRulesSettingsPage() {
                             onChange={e => setEditForm({...editForm, group: e.target.value})}
                             className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
                           >
-                            {CATEGORIES.map(c => (
+                            {categories.map(c => (
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>

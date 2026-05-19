@@ -21,6 +21,36 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
+  const existing = await prisma.mappingRule.findFirst({
+    where: { pattern: body.pattern },
+  });
+
+  if (existing) {
+    const sameGroup = existing.default_group === body.default_group;
+    const sameType = existing.default_type === body.default_type;
+
+    if (sameGroup && sameType) {
+      return NextResponse.json({ status: "ignorado", rule: existing });
+    }
+
+    return NextResponse.json({
+      status: "conflicto",
+      existing: {
+        id: existing.id,
+        pattern: existing.pattern,
+        default_group: existing.default_group,
+        default_type: existing.default_type,
+        default_bank_id: existing.default_bank_id,
+      },
+      incoming: {
+        pattern: body.pattern,
+        default_group: body.default_group,
+        default_type: body.default_type,
+        default_bank_id: body.default_bank_id,
+      },
+    }, { status: 409 });
+  }
+
   const rule = await prisma.mappingRule.create({
     data: {
       pattern: body.pattern,
@@ -31,5 +61,5 @@ export async function POST(request: NextRequest) {
     include: { default_bank: true },
   });
 
-  return NextResponse.json(rule, { status: 201 });
+  return NextResponse.json({ status: "creado", rule }, { status: 201 });
 }

@@ -46,7 +46,9 @@ export async function POST(request: NextRequest) {
 
     const errors: string[] = [];
     const results: { pattern: string; type: string; group: string; status: string }[] = [];
+    const conflicts: { pattern: string; existing: { default_group: string; default_type: string }; incoming: { default_group: string; default_type: string } }[] = [];
     let created = 0;
+    let skipped = 0;
 
     for (let i = 1; i < lines.length; i++) {
       const parts = lines[i].split(separator).map(clean);
@@ -65,21 +67,42 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        await prisma.mappingRule.create({
-          data: {
-            pattern: concepto,
-            default_group: categoria,
-            default_type: tipo,
-          },
+        const existing = await prisma.mappingRule.findFirst({
+          where: { pattern: concepto },
         });
-        created++;
-        results.push({ pattern: concepto, type: tipo, group: categoria, status: "ok" });
+
+        if (existing) {
+          const sameGroup = existing.default_group === categoria;
+          const sameType = existing.default_type === tipo;
+
+          if (sameGroup && sameType) {
+            skipped++;
+            results.push({ pattern: concepto, type: tipo, group: categoria, status: "omitido" });
+          } else {
+            conflicts.push({
+              pattern: concepto,
+              existing: { default_group: existing.default_group, default_type: existing.default_type },
+              incoming: { default_group: categoria, default_type: tipo },
+            });
+            results.push({ pattern: concepto, type: tipo, group: categoria, status: "conflicto" });
+          }
+        } else {
+          await prisma.mappingRule.create({
+            data: {
+              pattern: concepto,
+              default_group: categoria,
+              default_type: tipo,
+            },
+          });
+          created++;
+          results.push({ pattern: concepto, type: tipo, group: categoria, status: "ok" });
+        }
       } catch (err) {
         errors.push("Línea " + (i + 1) + ": " + (err as Error).message);
       }
     }
 
-    return NextResponse.json({ created, errors, results });
+    return NextResponse.json({ created, skipped, conflicts, errors, results });
   } catch (err) {
     return NextResponse.json({ error: "Error al procesar el archivo: " + (err as Error).message }, { status: 500 });
   }

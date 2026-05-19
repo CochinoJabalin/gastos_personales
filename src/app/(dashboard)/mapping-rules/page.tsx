@@ -15,11 +15,6 @@ interface Bank {
   bank_name: string;
 }
 
-const CATEGORIES = [
-  "Ingresos", "Ocio", "Compras", "JustEat", "Streaming",
-  "Ropa", "Hogar", "Supermercado", "Transporte", "Salud",
-  "Educación", "Servicios",
-];
 const TYPES = ["Fijo", "Variable"];
 
 export default function MappingRulesPage() {
@@ -29,14 +24,17 @@ export default function MappingRulesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ pattern: "", group: "", type: "", bank_id: "" });
   const [filter, setFilter] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/mapping-rules").then(r => r.json()),
       fetch("/api/banks").then(r => r.json()),
-    ]).then(([rulesData, banksData]) => {
+      fetch("/api/categories").then(r => r.json()),
+    ]).then(([rulesData, banksData, cats]) => {
       setRules(Array.isArray(rulesData) ? rulesData : rulesData.rules || []);
       setBanks(Array.isArray(banksData) ? banksData : []);
+      setCategories(Array.isArray(cats) ? cats.sort() : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -85,15 +83,17 @@ export default function MappingRulesPage() {
 
   return (
     <div className="p-lg space-y-lg">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h1 className="text-headline-md text-on-surface">Reglas de Mapeo</h1>
-        <input
-          type="text"
-          placeholder="Buscar..."
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          className="bg-surface-container-high rounded-lg px-3 py-2 text-body-sm text-on-surface border border-outline-variant w-48"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Buscar..."
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            className="bg-surface-container-high rounded-lg px-3 py-2 text-body-sm text-on-surface border border-outline-variant w-48"
+          />
+        </div>
       </div>
 
       <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
@@ -138,7 +138,7 @@ export default function MappingRulesPage() {
                             onChange={e => setEditForm({...editForm, group: e.target.value})}
                             className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
                           >
-                                {CATEGORIES.map(c => (
+                            {categories.map(c => (
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>
