@@ -169,3 +169,23 @@ model MappingRule {
   default_group   String
   default_type    String
 }
+
+model BackupSchedule {
+  id          String    @id @default(uuid())
+  name        String
+  frequency   String    // "daily" | "weekly" | "monthly"
+  dayOfWeek   Int?      // 0-6, only for weekly
+  dayOfMonth  Int?      // 1-31, only for monthly
+  time        String    // "HH:mm" 24h format
+  enabled     Boolean   @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model AppConfig {
+  id          String  @id @default("default")
+  backupPath  String  @default("/backups")
+  updatedAt   DateTime @updatedAt
+}
