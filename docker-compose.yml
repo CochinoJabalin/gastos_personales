@@ -18,6 +18,8 @@ services:
     restart: unless-stopped
     ports:
       - "0.0.0.0:3000:3000"
+    volumes:
+      - backups:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -30,3 +32,4 @@ services:
 
 volumes:
   pgdata:
+  backups:
