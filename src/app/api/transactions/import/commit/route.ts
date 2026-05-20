@@ -21,17 +21,24 @@ export async function POST(request: NextRequest) {
   const allBanks = await prisma.bank.findMany();
   const bankByName = new Map(allBanks.map((b) => [b.bank_name.toLowerCase(), b]));
 
+  const uniqueBankNames = [...new Set(items.map((i) => i.bankName))];
+  const pendingBankNames = uniqueBankNames.filter(
+    (name) => !bankByName.has(name.toLowerCase())
+  );
+  if (pendingBankNames.length > 0) {
+    return NextResponse.json({
+      phase: "banks_pending",
+      pending_banks: pendingBankNames,
+    });
+  }
+
   let created = 0;
   let replaced = 0;
   const errors: string[] = [];
 
   for (const item of items) {
     try {
-      const bank = bankByName.get(item.bankName.toLowerCase());
-      if (!bank) {
-        errors.push(`Banco no encontrado: ${item.bankName}`);
-        continue;
-      }
+      const bank = bankByName.get(item.bankName.toLowerCase())!;
 
       const finalAmount = applySign(item.amount, item.group);
       const dateObj = new Date(item.yearNum, item.monthIdx, item.day);

@@ -17,10 +17,12 @@ export default function TransactionsImport() {
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [conflicts, setConflicts] = useState<Record<string, "keep" | "replace">>({});
   const [applyAll, setApplyAll] = useState<"keep" | "replace" | null>(null);
-  const [yearFilter, setYearFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState<string[]>([]);
   const [monthFilter, setMonthFilter] = useState("");
   const [result, setResult] = useState<{ created: number; replaced: number; errors: string[] } | null>(null);
   const [error, setError] = useState("");
+  const [pendingBanks, setPendingBanks] = useState<string[] | null>(null);
+  const [creatingBanks, setCreatingBanks] = useState(false);
 
   async function handlePreview() {
     if (!file) return;
@@ -30,6 +32,7 @@ export default function TransactionsImport() {
     setResult(null);
     setConflicts({});
     setApplyAll(null);
+    setPendingBanks(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -41,7 +44,7 @@ export default function TransactionsImport() {
       if (!res.ok) {
         setError(data.error || "Error del servidor");
       } else if (data.pending_banks?.length > 0) {
-        setError(`Bancos no registrados: ${data.pending_banks.join(", ")}. Créalos primero en Ajustes.`);
+        setPendingBanks(data.pending_banks);
       } else {
         setPreview(data.rows);
       }
@@ -55,14 +58,15 @@ export default function TransactionsImport() {
   const filtered = preview
     ? preview.filter((r) => {
         const [y, m] = r.date.split("-");
-        if (yearFilter && y !== yearFilter) return false;
+        if (yearFilter.length > 0 && !yearFilter.includes(y)) return false;
         if (monthFilter && m !== monthFilter.padStart(2, "0")) return false;
         return true;
       })
     : [];
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 11 }, (_, i) => (currentYear - 5 + i).toString());
+  const availableYears = preview
+    ? [...new Set(preview.map((r) => r.date.split("-")[0]))].sort()
+    : [];
 
   function resolveConflict(key: string, decision: "keep" | "replace") {
     setConflicts((prev) => ({ ...prev, [key]: decision }));
@@ -113,6 +117,8 @@ export default function TransactionsImport() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Error del servidor");
+      } else if (data.phase === "banks_pending") {
+        setPendingBanks(data.pending_banks);
       } else {
         setResult(data);
         setPreview(null);
@@ -173,21 +179,123 @@ export default function TransactionsImport() {
         <p className="mb-md text-body-sm text-error bg-error-container/20 rounded-lg px-3 py-2">{error}</p>
       )}
 
+      {pendingBanks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !creatingBanks && setPendingBanks(null)}>
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-xl w-full max-w-lg mx-md space-y-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-title-md text-on-surface">Bancos no registrados</h3>
+              <button onClick={() => !creatingBanks && setPendingBanks(null)} className="text-on-surface-variant hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-body-sm text-on-surface-variant">
+              Los siguientes bancos no existen. Asígnale una cuenta para crearlos automáticamente:
+            </p>
+            <div className="space-y-md">
+              {pendingBanks.map((bankName) => (
+                <div key={bankName} className="bg-surface-container-high rounded-lg p-md space-y-sm">
+                  <label className="text-label-caps text-on-surface-variant uppercase block">Nombre del banco</label>
+                  <input
+                    readOnly
+                    value={bankName}
+                    className="w-full bg-surface-container rounded-lg px-md py-md text-body-md text-on-surface border border-outline-variant"
+                  />
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div>
+                      <label className="text-label-caps text-on-surface-variant uppercase block mb-1">Cuenta</label>
+                      <input
+                        id={`account-${bankName}`}
+                        defaultValue={`Cuenta ${bankName}`}
+                        className="w-full bg-surface-container rounded-lg px-md py-md text-body-md text-on-surface border border-outline-variant focus:border-primary focus:outline-none"
+                        placeholder="Cuenta Principal"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-label-caps text-on-surface-variant uppercase block mb-1">IBAN (opcional)</label>
+                      <input
+                        id={`iban-${bankName}`}
+                        className="w-full bg-surface-container rounded-lg px-md py-md text-body-md text-on-surface border border-outline-variant focus:border-primary focus:outline-none"
+                        placeholder="ES00..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={async () => {
+                setCreatingBanks(true);
+                try {
+                  for (const bankName of pendingBanks) {
+                    const accountLabel = (document.getElementById(`account-${bankName}`) as HTMLInputElement).value || `Cuenta ${bankName}`;
+                    const iban = (document.getElementById(`iban-${bankName}`) as HTMLInputElement).value || undefined;
+                    const res = await fetch("/api/banks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ bank_name: bankName, account_label: accountLabel, iban }),
+                    });
+                    if (!res.ok) {
+                      const data = await res.json();
+                      setError(data.error || `Error al crear banco: ${bankName}`);
+                      setPendingBanks(null);
+                      setCreatingBanks(false);
+                      return;
+                    }
+                  }
+                  setPendingBanks(null);
+                  await handlePreview();
+                } catch {
+                  setError("Error de conexión al crear bancos");
+                  setPendingBanks(null);
+                } finally {
+                  setCreatingBanks(false);
+                }
+              }}
+              disabled={creatingBanks}
+              className="w-full bg-primary text-primary-on py-md rounded-lg text-label-caps hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {creatingBanks ? "Creando bancos..." : `Crear ${pendingBanks.length} banco(s) y continuar`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {preview && (
         <div className="space-y-md">
           <div className="flex flex-wrap gap-sm items-end">
             <div>
               <label className="text-label-caps text-on-surface-variant uppercase block mb-1">Año</label>
-              <select
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-                className="bg-surface-container-high rounded-lg px-md py-md text-body-md text-on-surface border border-outline-variant"
-              >
-                <option value="">Todos</option>
-                {years.map((y) => (
-                  <option key={y} value={y}>{y}</option>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={() => setYearFilter([])}
+                  className={`px-2 py-1 rounded text-label-caps transition-colors ${
+                    yearFilter.length === 0
+                      ? "bg-primary text-primary-on"
+                      : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                  }`}
+                >
+                  Todos
+                </button>
+                {availableYears.map((y) => (
+                  <button
+                    key={y}
+                    onClick={() =>
+                      setYearFilter((prev) =>
+                        prev.includes(y)
+                          ? prev.filter((v) => v !== y)
+                          : [...prev, y]
+                      )
+                    }
+                    className={`px-2 py-1 rounded text-label-caps transition-colors ${
+                      yearFilter.includes(y)
+                        ? "bg-primary text-primary-on"
+                        : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                    }`}
+                  >
+                    {y}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
             <div>
               <label className="text-label-caps text-on-surface-variant uppercase block mb-1">Mes</label>
