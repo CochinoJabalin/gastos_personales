@@ -37,6 +37,12 @@ model Account {
   holdings          InvestmentHolding[]
 }
 
+model Originator {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+}
+
 model CrowdlendingInvestment {
   id                  String        @id @default(uuid())
   account_id          String?
@@ -172,17 +178,33 @@ model MappingRule {
 }
 
 model BackupSchedule {
-  id          String    @id @default(uuid())
-  name        String
-  frequency   String    // "daily" | "weekly" | "monthly"
-  dayOfWeek   Int?      // 0-6, only for weekly
-  dayOfMonth  Int?      // 1-31, only for monthly
-  time        String    // "HH:mm" 24h format
-  enabled     Boolean   @default(true)
-  lastRun     DateTime?
-  nextRun     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String    @id @default(uuid())
+  name                String
+  frequency           String    // "daily" | "weekly" | "monthly"
+  dayOfWeek           Int?      // 0-6, only for weekly
+  dayOfMonth          Int?      // 1-31, only for monthly
+  time                String    // "HH:mm" 24h format
+  enabled             Boolean   @default(true)
+  path                String?   // overrides global backup path
+  includeTransactions Boolean   @default(true)
+  includeMappingRules Boolean   @default(true)
+  includeBanks        Boolean   @default(true)
+  lastRun             DateTime?
+  nextRun             DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  logs                BackupLog[]
+}
+
+model BackupLog {
+  id          String   @id @default(uuid())
+  scheduleId  String?
+  schedule    BackupSchedule? @relation(fields: [scheduleId], references: [id])
+  filename    String
+  filepath    String
+  size        Int
+  stats       String   // JSON string
+  createdAt   DateTime @default(now())
 }
 
 model AppConfig {
