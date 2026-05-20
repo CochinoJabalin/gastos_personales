@@ -10,6 +10,7 @@ const navItems = [
   { href: "/matrix", label: "Matriz", icon: "grid_3x3" },
   { href: "/transactions", label: "Operaciones", icon: "receipt_long" },
   { href: "/investments", label: "Inversiones", icon: "trending_up" },
+  { href: "/crowdlending", label: "Crowdlending", icon: "account_balance" },
   { href: "/quick-entry", label: "Rápido", icon: "add_circle" },
   { href: "/settings", label: "Ajustes", icon: "settings" },
 ];

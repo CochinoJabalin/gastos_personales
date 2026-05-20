@@ -67,7 +67,10 @@ interface Summary {
   finalizadas: number;
 }
 
-const ORIGINADORES = ["WECITY", "DOMOBLOCK", "URBANITAE"];
+interface Originator {
+  id: string;
+  name: string;
+}
 
 function formatEur(v: number) {
   return `${v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
@@ -84,6 +87,7 @@ export default function CrowdlendingTab() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [originadorFilter, setOriginadorFilter] = useState("");
+  const [originators, setOriginators] = useState<Originator[]>([]);
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [detailInv, setDetailInv] = useState<Investment | null>(null);
