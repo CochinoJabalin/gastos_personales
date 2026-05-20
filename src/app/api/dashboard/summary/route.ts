@@ -1,19 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { searchParams } = new URL(request.url);
+  const year = parseInt(searchParams.get("year") || "") || new Date().getFullYear();
+
   const now = new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const currentYearStart = new Date(now.getFullYear(), 0, 1);
+  const yearStart = new Date(year, 0, 1);
 
   const allTransactions = await prisma.transaction.findMany({
     where: {
-      timestamp: { gte: currentYearStart },
+      timestamp: {
+        gte: yearStart,
+        lt: new Date(year + 1, 0, 1),
+      },
     },
   });
 
@@ -60,6 +66,6 @@ export async function GET() {
     current_month_income: currentMonthIncome,
     current_month_expenses: currentMonthExpenses,
     month: now.getMonth() + 1,
-    year: now.getFullYear(),
+    year,
   });
 }

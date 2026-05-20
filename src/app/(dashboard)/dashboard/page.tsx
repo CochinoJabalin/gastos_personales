@@ -71,11 +71,27 @@ export default function DashboardPage() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const { hideValues, setHideValues } = useView();
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   useEffect(() => {
+    fetch("/api/transactions/years")
+      .then((r) => r.json())
+      .then((data) => {
+        const years = (data.years || []) as number[];
+        setAvailableYears(years);
+        if (years.length > 0 && !years.includes(new Date().getFullYear())) {
+          setSelectedYear(years[years.length - 1]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
     Promise.all([
-      fetch("/api/dashboard/summary").then((r) => r.json()),
-      fetch("/api/dashboard/matrix").then((r) => r.json()),
+      fetch(`/api/dashboard/summary?year=${selectedYear}`).then((r) => r.json()),
+      fetch(`/api/dashboard/matrix?year=${selectedYear}`).then((r) => r.json()),
       fetch("/api/banks").then((r) => r.json()),
     ])
       .then(([s, m, b]) => {
@@ -85,7 +101,7 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedYear]);
 
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [catMonthlyData, setCatMonthlyData] = useState<number[] | null>(null);
@@ -95,10 +111,9 @@ export default function DashboardPage() {
     setSelectedCat(group);
     setCatLoading(true);
     setCatMonthlyData(null);
-    const currentYear = new Date().getFullYear();
     Promise.all([
-      fetch(`/api/dashboard/matrix?year=${currentYear}`).then((r) => r.json()),
-      fetch(`/api/dashboard/matrix?year=${currentYear - 1}`).then((r) => r.json()),
+      fetch(`/api/dashboard/matrix?year=${selectedYear}`).then((r) => r.json()),
+      fetch(`/api/dashboard/matrix?year=${selectedYear - 1}`).then((r) => r.json()),
     ])
       .then(([curr, prev]) => {
         const currGroups = curr.groupsMonthly?.filter(
@@ -108,12 +123,12 @@ export default function DashboardPage() {
           (gm: GroupMonthly) => gm.group === group
         ) || [];
         const combined: number[] = [];
-        const now = new Date();
         for (let i = 11; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const d = new Date();
+          d.setFullYear(d.getFullYear(), d.getMonth() - i, 1);
           const monthIndex = d.getMonth();
           const year = d.getFullYear();
-          const source = year === currentYear ? currGroups : prevGroups;
+          const source = year === selectedYear ? currGroups : prevGroups;
           const total = source.reduce((sum: number, g: GroupMonthly) => sum + (g.months[monthIndex] || 0), 0);
           combined.push(total);
         }
@@ -160,7 +175,8 @@ export default function DashboardPage() {
 
   const monthLabels = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
   const currentMonth = new Date().getMonth();
-  const monthsSoFar = currentMonth + 1;
+  const isCurrentYear = selectedYear === new Date().getFullYear();
+  const monthsSoFar = isCurrentYear ? currentMonth + 1 : 12;
 
   const donutSegments = [
     { label: "Fijo", value: summary?.fixed_expenses || 0, color: "#adc6ff" },
@@ -245,7 +261,16 @@ export default function DashboardPage() {
 
   return (
     <div className={`flex flex-col gap-6 ${hideValues ? "hide-cifras" : ""}`}>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-sm">
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
+          className="bg-surface-dim text-on-surface-variant hover:text-on-surface rounded-lg px-sm py-1 text-label-caps text-[10px] uppercase border-0 focus:ring-1 focus:ring-primary cursor-pointer"
+        >
+          {availableYears.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
         <button
           onClick={() => setHideValues(!hideValues)}
           className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
