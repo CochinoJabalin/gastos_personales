@@ -36,6 +36,7 @@ export default function BanksSettingsPage() {
     { href: "/settings/banks", label: "Bancos", icon: "account_balance" },
     { href: "/settings/mapping-rules", label: "Mapeos", icon: "rule" },
     { href: "/settings/import", label: "Importar", icon: "upload" },
+    { href: "/settings/backup", label: "Backup", icon: "backup" },
   ];
 
   // Add bank form
