@@ -112,12 +112,22 @@ export default function BarChart({
           return (
             <div
               key={i}
-              className="flex-1 rounded-t-sm transition-all duration-200 hover:opacity-80"
-              style={{
-                height: `${barHeight}%`,
-                backgroundColor: d.color || (isLast ? "#adc6ff" : "rgba(173, 198, 255, 0.2)"),
-              }}
-            />
+              className="flex-1 flex flex-col items-center justify-end relative"
+              style={{ height: `${barHeight}%` }}
+            >
+              {!hidden && d.value !== undefined && (
+                <span className="text-label-caps text-[8px] text-on-surface-variant mb-0.5 tabular-nums">
+                  {Math.round(d.value * 10) / 10}€
+                </span>
+              )}
+              <div
+                className="w-full rounded-t-sm transition-all duration-200 hover:opacity-80"
+                style={{
+                  height: "100%",
+                  backgroundColor: d.color || (isLast ? "#adc6ff" : "rgba(173, 198, 255, 0.2)"),
+                }}
+              />
+            </div>
           );
         })}
         {overlayLine && overlayLine.values.length > 1 && (
@@ -162,11 +172,11 @@ export default function BarChart({
           </svg>
         )}
       </div>
-      <div className="flex justify-between mt-sm">
+      <div className="flex gap-1 mt-sm">
         {data.map((d, i) => (
           <span
             key={i}
-            className={`text-label-caps text-[9px] ${
+            className={`flex-1 text-center text-label-caps text-[9px] ${
               i === data.length - 1 ? "text-primary" : "text-on-surface-variant"
             }`}
           >
