@@ -42,6 +42,7 @@ export async function PUT(
         bank_id: body.bank_id,
         account_id: newAccountId,
         comentarios: body.comentarios || null,
+        timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
       },
       include: { bank: true, account: true },
     });

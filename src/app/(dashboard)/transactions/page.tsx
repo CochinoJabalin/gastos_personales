@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
+import ConceptCombobox from "@/components/ConceptCombobox";
 import { parseSpanishNumber, formatSpanish, isIncome } from "@/lib/format";
 
 interface Transaction {
@@ -30,17 +31,51 @@ const CATEGORIES = [
 ];
 const TYPES = ["Fijo", "Variable"];
 
+const CATEGORY_MAP: Record<string, string> = {
+  "Ingresos Varios": "Ingresos",
+  "Ingresos Nomina": "Ingresos",
+  "Ingresos Entrepeñas": "Ingresos",
+  "Ingresos Transferencias": "Ingresos",
+  "Gastos Comida": "Supermercado",
+  "Gastos Ocio": "Ocio",
+  "Gastos Compras": "Compras",
+  "Gastos Justeat": "JustEat",
+  "Gastos Streaming": "Streaming",
+  "Gastos Ropa": "Ropa",
+  "Gastos Hogar": "Hogar",
+  "Gastos Transporte": "Transporte",
+  "Gastos Salud": "Salud",
+  "Gastos Educación": "Educación",
+  "Gastos Servicios": "Servicios",
+  "Gastos Varios": "Ocio",
+  "Gastos Coche": "Transporte",
+  "Gastos Comunidad": "Servicios",
+  "Gastos Impuestos": "Servicios",
+  "Gastos Telefonia": "Servicios",
+  "Gastos Seguros": "Servicios",
+  "Gastos Formacion": "Educación",
+  "Gastos Medicos": "Salud",
+  "Gastos Vacaciones": "Ocio",
+  "Hipoteca": "Servicios",
+  "Ahorro": "Ingresos",
+  "myinvestor": "Ingresos",
+};
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "" });
+  const [editForm, setEditForm] = useState({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "", timestamp: "" });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFuture, setShowFuture] = useState(false);
 
   const [years, setYears] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [tab, setTab] = useState<"transactions" | "categories">("transactions");
+  const [groups, setGroups] = useState<{ group: string; type: string; count: number }[]>([]);
+  const [editingGroup, setEditingGroup] = useState<{ oldGroup: string; newGroup: string; newType: string } | null>(null);
 
   const [filters, setFilters] = useState({
     year: new Date().getFullYear().toString(),
@@ -53,7 +88,19 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchBanks();
     fetchYears();
+    fetch("/api/categories")
+      .then(r => r.json())
+      .then(setCategories)
+      .catch(() => {});
+    fetchGroups();
   }, []);
+
+  function fetchGroups() {
+    fetch("/api/transactions/groups")
+      .then(r => r.json())
+      .then(setGroups)
+      .catch(() => {});
+  }
 
   useEffect(() => {
     setPage(1);
@@ -98,6 +145,34 @@ export default function TransactionsPage() {
       .finally(() => setLoading(false));
   }
 
+  const inferEditConcept = useCallback(async (text: string) => {
+    if (!text || text.length < 2) return;
+    try {
+      const res = await fetch("/api/infer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ concept: text }),
+      });
+      const result = await res.json();
+      if (result && result.group) {
+        const mappedGroup = CATEGORY_MAP[result.group] || result.group;
+        setEditForm(prev => ({
+          ...prev,
+          group: mappedGroup,
+          type: result.type || prev.type,
+        }));
+      }
+    } catch {
+      // ignore inference errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!editingId) return;
+    const timer = setTimeout(() => inferEditConcept(editForm.concept), 400);
+    return () => clearTimeout(timer);
+  }, [editForm.concept, editingId, inferEditConcept]);
+
   function updateFilter(key: string, value: string) {
     setFilters(prev => ({ ...prev, [key]: value }));
   }
@@ -111,12 +186,13 @@ export default function TransactionsPage() {
       type: t.type,
       bank_id: t.bank_id || t.bank?.id || "",
       comentarios: t.comentarios || "",
+      timestamp: new Date(t.timestamp).toISOString().split("T")[0],
     });
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditForm({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "" });
+    setEditForm({ concept: "", amount: "", group: "", type: "", bank_id: "", comentarios: "", timestamp: "" });
   }
 
   async function saveEdit(id: string) {
@@ -133,6 +209,7 @@ export default function TransactionsPage() {
         type: editForm.type,
         bank_id: editForm.bank_id,
         comentarios: editForm.comentarios || null,
+        timestamp: editForm.timestamp ? new Date(editForm.timestamp + "T12:00:00").toISOString() : undefined,
       }),
     });
     setEditingId(null);
@@ -158,13 +235,147 @@ export default function TransactionsPage() {
           >
             {showFuture ? "Ver Operaciones Pasadas" : "Ver Operaciones Futuras"}
           </button>
-          <span className="text-body-sm text-on-surface-variant">
-            Página {page} de {totalPages}
-          </span>
+          {tab === "transactions" && (
+            <span className="text-body-sm text-on-surface-variant">
+              Página {page} de {totalPages}
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-sm items-end bg-surface-container border border-outline-variant rounded-xl p-md">
+      <div className="flex gap-md border-b border-outline-variant">
+        <button
+          onClick={() => setTab("transactions")}
+          className={`pb-sm px-1 text-body-sm font-medium transition-colors border-b-2 ${
+            tab === "transactions"
+              ? "border-primary text-primary"
+              : "border-transparent text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          Operaciones
+        </button>
+        <button
+          onClick={() => setTab("categories")}
+          className={`pb-sm px-1 text-body-sm font-medium transition-colors border-b-2 ${
+            tab === "categories"
+              ? "border-primary text-primary"
+              : "border-transparent text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          Gestionar Categorías
+        </button>
+      </div>
+
+      {tab === "categories" ? (
+        <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                  <th className="p-md">Categoría</th>
+                  <th className="p-md">Tipo</th>
+                  <th className="p-md">Transacciones</th>
+                  <th className="p-md w-32">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {groups.map((g) => (
+                  <tr key={`${g.group}-${g.type}`} className="hover:bg-surface-container-low transition-colors">
+                    {editingGroup?.oldGroup === g.group && editingGroup?.newType === g.type ? (
+                      <>
+                        <td className="p-md">
+                          <input
+                            type="text"
+                            value={editingGroup.newGroup}
+                            onChange={(e) =>
+                              setEditingGroup({ ...editingGroup, newGroup: e.target.value })
+                            }
+                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant w-full"
+                          />
+                        </td>
+                        <td className="p-md">
+                          <select
+                            value={editingGroup.newType}
+                            onChange={(e) =>
+                              setEditingGroup({ ...editingGroup, newType: e.target.value })
+                            }
+                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
+                          >
+                            {TYPES.map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
+                        <td className="p-md">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={async () => {
+                                if (!editingGroup) return;
+                                await fetch("/api/transactions/bulk-update-category", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    oldGroup: editingGroup.oldGroup,
+                                    newGroup: editingGroup.newGroup || editingGroup.oldGroup,
+                                    newType: editingGroup.newType,
+                                  }),
+                                });
+                                setEditingGroup(null);
+                                fetchGroups();
+                                fetchTransactions();
+                              }}
+                              className="text-primary hover:underline text-body-sm"
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              onClick={() => setEditingGroup(null)}
+                              className="text-on-surface-variant hover:text-on-surface text-body-sm"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-md text-on-surface font-medium">{g.group}</td>
+                        <td className="p-md">
+                          <ConditionalChip
+                            label={g.type}
+                            variant={g.type === "Fijo" ? "info" : "warning"}
+                          />
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
+                        <td className="p-md">
+                          <button
+                            onClick={() =>
+                              setEditingGroup({ oldGroup: g.group, newGroup: g.group, newType: g.type })
+                            }
+                            className="text-primary hover:underline text-body-sm"
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+                {groups.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-lg text-center text-on-surface-variant">
+                      No hay transacciones
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-sm items-end bg-surface-container border border-outline-variant rounded-xl p-md">
         <div className="flex flex-col gap-xs">
           <label className="text-label-caps text-on-surface-variant">Año</label>
           <select
@@ -213,7 +424,7 @@ export default function TransactionsPage() {
             className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant"
           >
             <option value="">Todas</option>
-            {CATEGORIES.map(c => (
+            {[...new Set(groups.map(g => g.group))].sort().map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -226,7 +437,7 @@ export default function TransactionsPage() {
             className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant"
           >
             <option value="">Todos</option>
-            {TYPES.map(t => (
+            {[...new Set(groups.map(g => g.type))].sort().map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -265,14 +476,20 @@ export default function TransactionsPage() {
                   <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
                     {editingId === t.id ? (
                       <>
-                        <td className="p-md text-on-surface-variant">
-                          {new Date(t.timestamp).toLocaleDateString("es")}
-                        </td>
                         <td className="p-md">
                           <input
+                            type="date"
+                            value={editForm.timestamp}
+                            onChange={e => setEditForm({...editForm, timestamp: e.target.value})}
+                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant w-36"
+                          />
+                        </td>
+                        <td className="p-md">
+                          <ConceptCombobox
                             value={editForm.concept}
-                            onChange={e => setEditForm({...editForm, concept: e.target.value})}
-                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
+                            onChange={value => setEditForm({...editForm, concept: value})}
+                            wrapperClassName="bg-surface-container-high rounded border border-outline-variant"
+                            inputClassName="w-full bg-transparent border-none focus:ring-0 text-body-sm px-2 py-1 text-on-surface"
                           />
                         </td>
                         <td className="p-md">
@@ -301,21 +518,18 @@ export default function TransactionsPage() {
                             onChange={e => setEditForm({...editForm, group: e.target.value})}
                             className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
                           >
-                            {CATEGORIES.map(c => (
+                            {categories.length > 0 ? categories.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            )) : CATEGORIES.map(c => (
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>
                         </td>
                         <td className="p-md">
-                          <select
-                            value={editForm.type}
-                            onChange={e => setEditForm({...editForm, type: e.target.value})}
-                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
-                          >
-                            {TYPES.map(t => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
+                          <ConditionalChip
+                            label={editForm.type}
+                            variant={editForm.type === "Fijo" ? "info" : "warning"}
+                          />
                         </td>
                         <td className="p-md">
                           <input
@@ -417,6 +631,8 @@ export default function TransactionsPage() {
             Siguiente
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   );

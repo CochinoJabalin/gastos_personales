@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
+import ConceptCombobox from "@/components/ConceptCombobox";
 import { parseSpanishNumber } from "@/lib/format";
 
 interface Bank {
@@ -88,6 +89,8 @@ export default function QuickEntryPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const todayStr = new Date().toISOString().split("T")[0];
+  const [date, setDate] = useState(todayStr);
   const [conceptTouched, setConceptTouched] = useState(false);
   const [catDropdownOpen, setCatDropdownOpen] = useState(false);
   const [catSearch, setCatSearch] = useState("");
@@ -229,6 +232,7 @@ export default function QuickEntryPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          timestamp: new Date(date + "T12:00:00").toISOString(),
           amount: parseSpanishNumber(amount),
           concept,
           bank_id: bankId,
@@ -241,6 +245,7 @@ export default function QuickEntryPage() {
       });
       if (res.ok) {
         setSuccess(true);
+        setDate(todayStr);
         setAmount("");
         setConcept("");
         setComentarios("");
@@ -266,10 +271,10 @@ export default function QuickEntryPage() {
     setTimeout(() => amountRef.current?.focus(), 0);
   }
 
-  function handleConceptChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setConcept(e.target.value);
+  function handleConceptChange(value: string) {
+    setConcept(value);
     setConceptTouched(true);
-    if (!e.target.value.trim()) {
+    if (!value.trim()) {
       setInference(null);
     }
   }
@@ -285,17 +290,13 @@ export default function QuickEntryPage() {
             <label className="text-label-caps text-on-surface-variant uppercase">
               Concepto <span className="text-error">*</span>
             </label>
-            <div className="bg-surface-container-lowest rounded-lg border border-outline-variant focus-within:border-primary transition-colors">
-              <input
-                type="text"
-                value={concept}
-                onChange={handleConceptChange}
-                onBlur={() => setConceptTouched(true)}
-                className="w-full bg-transparent border-none focus:ring-0 text-body-md py-md px-md text-on-surface"
-                placeholder="Escribe el concepto (ej: Mercadona, Netflix...)"
-                required
-              />
-            </div>
+            <ConceptCombobox
+              value={concept}
+              onChange={handleConceptChange}
+              onBlur={() => setConceptTouched(true)}
+              placeholder="Escribe el concepto (ej: Mercadona, Netflix...)"
+              required
+            />
           </div>
 
           <div className="space-y-xs">
@@ -328,6 +329,20 @@ export default function QuickEntryPage() {
                 className="w-full bg-transparent border-none focus:ring-0 text-body-sm py-md px-md text-on-surface resize-none"
                 placeholder="Notas opcionales..."
                 rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-xs">
+            <label className="text-label-caps text-on-surface-variant uppercase">
+              Fecha
+            </label>
+            <div className="bg-surface-container-lowest rounded-lg border border-outline-variant focus-within:border-primary transition-colors">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-transparent border-none focus:ring-0 text-body-md py-md px-md text-on-surface"
               />
             </div>
           </div>
