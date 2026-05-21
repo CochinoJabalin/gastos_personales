@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { transferScheduler } from "@/lib/transfer-scheduler";
+import { autoTopupManager } from "@/lib/auto-topup";
 import { executeTransfer } from "@/lib/transfer-utils";
 
 export const dynamic = "force-dynamic";
 
 transferScheduler.init();
+autoTopupManager.init();
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);

@@ -29,10 +29,21 @@ interface Transfer {
   to_account: { account_label: string; bank: { bank_name: string } };
 }
 
+interface AutoTopupConfig {
+  sourceBankName: string;
+  targetBankName: string;
+  threshold: number;
+  amount: number;
+  checkIntervalHours: number;
+  enabled: boolean;
+  lastCheck: string | null;
+}
+
 export default function TransfersPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [tab, setTab] = useState<"new" | "pending" | "completed">("new");
+  const [autoTopup, setAutoTopup] = useState<AutoTopupConfig | null>(null);
+  const [tab, setTab] = useState<"new" | "scheduled" | "pending" | "completed">("scheduled");
 
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
@@ -45,10 +56,17 @@ export default function TransfersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [topupThreshold, setTopupThreshold] = useState("");
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupInterval, setTopupInterval] = useState("3");
+  const [editingTopup, setEditingTopup] = useState(false);
+  const [topupSaving, setTopupSaving] = useState(false);
+  const [topupSaved, setTopupSaved] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
     fetchTransfers();
+    fetchAutoTopupConfig();
   }, []);
 
   async function fetchAccounts() {
@@ -65,6 +83,44 @@ export default function TransfersPage() {
       const data = await res.json();
       setTransfers(data.data || []);
     } catch {}
+  }
+
+  async function fetchAutoTopupConfig() {
+    try {
+      const res = await fetch("/api/auto-topup/config");
+      const data = await res.json();
+      setAutoTopup(data);
+      setTopupThreshold(String(data.threshold));
+      setTopupAmount(String(data.amount));
+      setTopupInterval(String(data.checkIntervalHours));
+    } catch {}
+  }
+
+  async function saveAutoTopupConfig() {
+    setTopupSaving(true);
+    try {
+      const res = await fetch("/api/auto-topup/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threshold: parseFloat(topupThreshold.replace(",", ".")),
+          amount: parseFloat(topupAmount.replace(",", ".")),
+          checkIntervalHours: parseInt(topupInterval, 10),
+          enabled: autoTopup?.enabled ?? true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAutoTopup(data);
+        setTopupThreshold(String(data.threshold));
+        setTopupAmount(String(data.amount));
+        setTopupInterval(String(data.checkIntervalHours));
+        setTopupSaved(true);
+        setTimeout(() => setTopupSaved(false), 3000);
+      }
+    } finally {
+      setTopupSaving(false);
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,10 +207,10 @@ export default function TransfersPage() {
   const toAccount = accounts.find((a) => a.id === toAccountId);
 
   return (
-    <div className="max-w-2xl mx-auto py-lg space-y-lg">
+    <div className={`mx-auto py-lg space-y-lg ${tab === "scheduled" ? "max-w-5xl" : "max-w-2xl"}`}>
       {/* Tabs */}
-      <div className="flex gap-2">
-        {(["new", "pending", "completed"] as const).map((t) => (
+      <div className="flex gap-2 flex-wrap">
+        {(["new", "scheduled", "pending", "completed"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -164,7 +220,7 @@ export default function TransfersPage() {
                 : "bg-surface-container-high text-on-surface-variant hover:text-on-surface"
             }`}
           >
-            {t === "new" ? "Nueva" : t === "pending" ? "Pendientes" : "Completadas"}
+            {t === "new" ? "Nueva" : t === "scheduled" ? "Programadas" : t === "pending" ? "Pendientes" : "Completadas"}
           </button>
         ))}
       </div>
@@ -335,6 +391,223 @@ export default function TransfersPage() {
             </button>
           )}
         </form>
+      )}
+
+      {tab === "scheduled" && (
+        <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden w-full">
+          <div className="overflow-x-auto">
+            <table className="text-left w-full min-w-max">
+              <thead>
+                <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                  <th className="p-md whitespace-nowrap">Origen</th>
+                  <th className="p-md whitespace-nowrap">Destino</th>
+                  <th className="p-md whitespace-nowrap">Importe</th>
+                  <th className="p-md whitespace-nowrap">Frecuencia</th>
+                  <th className="p-md whitespace-nowrap">Próxima ejecución</th>
+                  <th className="p-md whitespace-nowrap">Estado</th>
+                  <th className="p-md whitespace-nowrap">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {autoTopup && (
+                  <tr className="bg-surface-container-low">
+                    <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                      {autoTopup.sourceBankName}
+                    </td>
+                    <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                      {autoTopup.targetBankName}
+                    </td>
+                    <td className="p-md whitespace-nowrap">
+                      {editingTopup ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-body-xs text-on-surface-variant">Umbral:</span>
+                          <div className="bg-surface-container-lowest rounded border border-outline-variant focus-within:border-primary transition-colors flex items-center w-[90px]">
+                            <span className="pl-sm text-body-xs text-on-surface-variant">€</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={topupThreshold}
+                              onChange={(e) => setTopupThreshold(e.target.value)}
+                              className="w-full bg-transparent border-none focus:ring-0 text-body-sm py-0.5 text-primary"
+                            />
+                          </div>
+                          <span className="text-body-xs text-on-surface-variant">Transf.:</span>
+                          <div className="bg-surface-container-lowest rounded border border-outline-variant focus-within:border-primary transition-colors flex items-center w-[90px]">
+                            <span className="pl-sm text-body-xs text-on-surface-variant">€</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={topupAmount}
+                              onChange={(e) => setTopupAmount(e.target.value)}
+                              className="w-full bg-transparent border-none focus:ring-0 text-body-sm py-0.5 text-primary"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-body-sm text-on-surface font-medium">
+                          {autoTopup.amount.toLocaleString("es", { minimumFractionDigits: 2 })} €
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-md whitespace-nowrap">
+                      {editingTopup ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-body-xs text-on-surface-variant">Cada</span>
+                          <div className="bg-surface-container-lowest rounded border border-outline-variant focus-within:border-primary transition-colors flex items-center w-[50px]">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={topupInterval}
+                              onChange={(e) => setTopupInterval(e.target.value)}
+                              className="w-full bg-transparent border-none focus:ring-0 text-body-sm py-0.5 text-primary text-center"
+                            />
+                          </div>
+                          <span className="text-body-xs text-on-surface-variant">h</span>
+                        </div>
+                      ) : (
+                        <ConditionalChip label={`Cada ${autoTopup.checkIntervalHours}h`} variant="info" />
+                      )}
+                    </td>
+                    <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                      {autoTopup.lastCheck
+                        ? new Date(autoTopup.lastCheck).toLocaleString("es")
+                        : "Pendiente"}
+                    </td>
+                    <td className="p-md whitespace-nowrap">
+                      <ConditionalChip
+                        label={autoTopup.enabled ? "Activo" : "Inactivo"}
+                        variant={autoTopup.enabled ? "success" : "warning"}
+                      />
+                    </td>
+                    <td className="p-md">
+                      <div className="flex gap-1 items-center">
+                        {editingTopup ? (
+                          <>
+                            <button
+                              onClick={() => { saveAutoTopupConfig(); setEditingTopup(false); }}
+                              disabled={topupSaving}
+                              className="px-2 py-1 bg-primary text-primary-on text-label-caps rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
+                            >
+                              {topupSaving ? "..." : "Guardar"}
+                            </button>
+                            <button
+                              onClick={() => { setEditingTopup(false); setTopupThreshold(String(autoTopup.threshold)); setTopupAmount(String(autoTopup.amount)); setTopupInterval(String(autoTopup.checkIntervalHours)); }}
+                              className="px-2 py-1 text-label-caps rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setEditingTopup(true)}
+                            className="px-2 py-1 bg-primary text-primary-on text-label-caps rounded-md hover:opacity-90 transition-opacity"
+                          >
+                            Modificar
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/auto-topup/config", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ enabled: !autoTopup.enabled }),
+                            });
+                            fetchAutoTopupConfig();
+                          }}
+                          className={`px-2 py-1 text-label-caps rounded-md border transition-colors ${
+                            autoTopup.enabled
+                              ? "border-warning text-warning hover:bg-warning/10"
+                              : "border-positive text-positive hover:bg-positive/10"
+                          }`}
+                        >
+                          {autoTopup.enabled ? "Desactivar" : "Activar"}
+                        </button>
+                        {topupSaved && (
+                          <span className="text-positive text-body-xs font-medium">✓</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {transfers.filter((t) => t.is_scheduled).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-lg text-center text-on-surface-variant text-body-sm">
+                      No hay transferencias programadas
+                    </td>
+                  </tr>
+                ) : (
+                  transfers
+                    .filter((t) => t.is_scheduled)
+                    .sort((a, b) => {
+                      if (!a.next_run) return 1;
+                      if (!b.next_run) return -1;
+                      return new Date(a.next_run).getTime() - new Date(b.next_run).getTime();
+                    })
+                    .map((t) => (
+                      <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
+                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                          {t.from_account.bank.bank_name} - {t.from_account.account_label}
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                          {t.to_account.bank.bank_name} - {t.to_account.account_label}
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface font-medium whitespace-nowrap">
+                          {t.amount.toLocaleString("es", { minimumFractionDigits: 2 })} €
+                        </td>
+                        <td className="p-md whitespace-nowrap">
+                          {t.frequency ? (
+                            <ConditionalChip label={t.frequency} variant="info" />
+                          ) : (
+                            <span className="text-on-surface-variant text-body-sm">—</span>
+                          )}
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                          {t.next_run
+                            ? new Date(t.next_run).toLocaleDateString("es")
+                            : "—"}
+                        </td>
+                        <td className="p-md whitespace-nowrap">
+                          <ConditionalChip
+                            label={t.enabled ? "Activa" : "Pausada"}
+                            variant={t.enabled ? "success" : "warning"}
+                          />
+                        </td>
+                        <td className="p-md">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleExecute(t.id)}
+                              className="px-2 py-1 bg-primary text-primary-on text-label-caps rounded-md hover:opacity-90 transition-opacity"
+                              title="Ejecutar ahora"
+                            >
+                              Ejecutar
+                            </button>
+                            <button
+                              onClick={() => handleToggle(t)}
+                              className={`px-2 py-1 text-label-caps rounded-md border transition-colors ${
+                                t.enabled
+                                  ? "border-warning text-warning hover:bg-warning/10"
+                                  : "border-positive text-positive hover:bg-positive/10"
+                              }`}
+                              title={t.enabled ? "Pausar" : "Reanudar"}
+                            >
+                              {t.enabled ? "Pausar" : "Reanudar"}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              className="px-2 py-1 text-label-caps rounded-md border border-error text-error hover:bg-error/10 transition-colors"
+                              title="Eliminar"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {tab === "pending" && (
