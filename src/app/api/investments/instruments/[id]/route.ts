@@ -3,12 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const instrument = await prisma.investmentInstrument.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       holdings: { include: { account: true } },
     },
@@ -19,14 +21,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   return NextResponse.json(instrument);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
 
   const instrument = await prisma.investmentInstrument.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ticker: body.ticker,
       name: body.name,
@@ -41,14 +44,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return NextResponse.json(instrument);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  await prisma.investmentLot.deleteMany({ where: { instrument_id: params.id } });
-  await prisma.investmentTransaction.deleteMany({ where: { instrument_id: params.id } });
-  await prisma.investmentHolding.deleteMany({ where: { instrument_id: params.id } });
-  await prisma.investmentInstrument.delete({ where: { id: params.id } });
+  const { id } = await params;
+
+  await prisma.investmentLot.deleteMany({ where: { instrument_id: id } });
+  await prisma.investmentTransaction.deleteMany({ where: { instrument_id: id } });
+  await prisma.investmentHolding.deleteMany({ where: { instrument_id: id } });
+  await prisma.investmentInstrument.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

@@ -6,11 +6,12 @@ import { validateIBAN } from "@/lib/iban";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
 
   const data: Record<string, unknown> = {};
@@ -32,7 +33,7 @@ export async function PUT(
 
   try {
     const bank = await prisma.bank.update({
-      where: { id: params.id },
+      where: { id },
       data,
     });
     return NextResponse.json(bank);
@@ -43,13 +44,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const txCount = await prisma.transaction.count({
-    where: { bank_id: params.id },
+    where: { bank_id: id },
   });
 
   if (txCount > 0) {
@@ -60,8 +63,8 @@ export async function DELETE(
   }
 
   try {
-    await prisma.mappingRule.deleteMany({ where: { default_bank_id: params.id } });
-    await prisma.bank.delete({ where: { id: params.id } });
+    await prisma.mappingRule.deleteMany({ where: { default_bank_id: id } });
+    await prisma.bank.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Banco no encontrado" }, { status: 404 });

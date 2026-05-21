@@ -5,13 +5,15 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; pid: string } }
+  { params }: { params: Promise<{ id: string; pid: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { pid } = await params;
+
   const payment = await prisma.crowdlendingPayment.findUnique({
-    where: { id: params.pid },
+    where: { id: pid },
   });
 
   if (!payment) {
@@ -43,7 +45,7 @@ export async function DELETE(
   }
 
   await prisma.crowdlendingPayment.delete({
-    where: { id: params.pid },
+    where: { id: pid },
   });
 
   return NextResponse.json({ success: true });

@@ -5,13 +5,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
-  const account = await prisma.account.findUnique({ where: { id: params.id } });
+  const account = await prisma.account.findUnique({ where: { id } });
   if (!account) return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
 
   const data: Record<string, unknown> = {};
@@ -30,7 +31,7 @@ export async function PUT(
   }
 
   const updated = await prisma.account.update({
-    where: { id: params.id },
+    where: { id },
     data,
   });
 
@@ -43,13 +44,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const account = await prisma.account.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { bank: { include: { accounts: true } } },
   });
   if (!account) return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
@@ -58,15 +61,15 @@ export async function DELETE(
     return NextResponse.json({ error: "No puedes eliminar la cuenta por defecto. Establece otra como default primero." }, { status: 400 });
   }
 
-  const txCount = await prisma.transaction.count({ where: { account_id: params.id } });
+  const txCount = await prisma.transaction.count({ where: { account_id: id } });
   if (txCount > 0) {
     await prisma.transaction.updateMany({
-      where: { account_id: params.id },
+      where: { account_id: id },
       data: { account_id: null },
     });
   }
 
-  await prisma.account.delete({ where: { id: params.id } });
+  await prisma.account.delete({ where: { id } });
 
   const agg = await prisma.account.aggregate({ where: { bank_id: account.bank_id }, _sum: { balance: true } });
   await prisma.bank.update({ where: { id: account.bank_id }, data: { balance: agg._sum.balance ?? 0 } });

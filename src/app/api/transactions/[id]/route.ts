@@ -14,14 +14,15 @@ async function resolveAccount(bankId: string, preferredAccountId?: string | null
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
 
-  const oldTx = await prisma.transaction.findUnique({ where: { id: params.id } });
+  const oldTx = await prisma.transaction.findUnique({ where: { id } });
   if (!oldTx) {
     return NextResponse.json({ error: "Transacción no encontrada" }, { status: 404 });
   }
@@ -33,7 +34,7 @@ export async function PUT(
 
   try {
     const transaction = await prisma.transaction.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         concept: body.concept,
         amount,
@@ -79,19 +80,21 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const tx = await prisma.transaction.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+
+  const tx = await prisma.transaction.findUnique({ where: { id } });
   if (!tx) {
     return NextResponse.json({ error: "Transacción no encontrada" }, { status: 404 });
   }
 
   try {
     await prisma.transaction.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     // Reverse effect on account

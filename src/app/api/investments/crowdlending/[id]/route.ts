@@ -18,13 +18,15 @@ function serialize(inv: Awaited<ReturnType<typeof prisma.crowdlendingInvestment.
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const investment = await prisma.crowdlendingInvestment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       account: true,
       payments: { orderBy: { fecha: "asc" } },
@@ -65,17 +67,18 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
 
   // If marking as MATURED, calculate final KPIs
   if (body.status === "MATURED") {
     const inv = await prisma.crowdlendingInvestment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { payments: true },
     });
 
@@ -96,7 +99,7 @@ export async function PUT(
   }
 
   const investment = await prisma.crowdlendingInvestment.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       descripcion: body.descripcion,
       meses_extension: body.meses_extension,
@@ -115,13 +118,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const investment = await prisma.crowdlendingInvestment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { payments: true },
   });
 
@@ -153,12 +158,12 @@ export async function DELETE(
 
   // Delete all payments
   await prisma.crowdlendingPayment.deleteMany({
-    where: { investment_id: params.id },
+    where: { investment_id: id },
   });
 
   // Reverse initial transaction
   const initTx = await prisma.transaction.findFirst({
-    where: { crowdlending_investment_id: params.id },
+    where: { crowdlending_investment_id: id },
   });
   if (initTx) {
     await prisma.transaction.delete({ where: { id: initTx.id } });
@@ -175,7 +180,7 @@ export async function DELETE(
   }
 
   await prisma.crowdlendingInvestment.delete({
-    where: { id: params.id },
+    where: { id },
   });
 
   return NextResponse.json({ success: true });

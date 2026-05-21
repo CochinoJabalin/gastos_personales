@@ -8,13 +8,15 @@ import { readFileSync } from "fs";
 
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const schedule = await prisma.backupSchedule.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!schedule) {

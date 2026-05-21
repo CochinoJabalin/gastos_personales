@@ -6,12 +6,14 @@ import { readFileSync, existsSync } from "fs";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const log = await getBackupLogById(params.id);
+  const { id } = await params;
+
+  const log = await getBackupLogById(id);
 
   if (!log) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });

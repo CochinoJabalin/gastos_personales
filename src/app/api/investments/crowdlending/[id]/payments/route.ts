@@ -5,13 +5,15 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const investment = await prisma.crowdlendingInvestment.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!investment) {
@@ -19,7 +21,7 @@ export async function GET(
   }
 
   const payments = await prisma.crowdlendingPayment.findMany({
-    where: { investment_id: params.id },
+    where: { investment_id: id },
     orderBy: { fecha: "asc" },
   });
 
@@ -35,15 +37,16 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  const { id } = await params;
   const body = await request.json();
 
   const investment = await prisma.crowdlendingInvestment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { account: true },
   });
 
@@ -53,7 +56,7 @@ export async function POST(
 
   const payment = await prisma.crowdlendingPayment.create({
     data: {
-      investment_id: params.id,
+      investment_id: id,
       fecha: new Date(body.fecha),
       importe: body.importe,
       intereses: body.intereses,
@@ -75,7 +78,7 @@ export async function POST(
         group: "Inversión",
         type: "Variable",
         timestamp: new Date(body.fecha),
-        crowdlending_investment_id: params.id,
+        crowdlending_investment_id: id,
         comentarios: `Intereses: ${Number(body.intereses).toFixed(2)}€ / Capital: ${Number(body.capital).toFixed(2)}€`,
       },
     });
