@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q") || "";
 
   const results = await prisma.$queryRaw<Array<{ concept: string; count: number }>>`
-    SELECT "concept", COUNT(*)::int as "count"
+    SELECT "concept", CAST(COUNT(*) AS INTEGER) as "count"
     FROM "Transaction"
     WHERE LOWER("concept") LIKE ${"%" + q.toLowerCase() + "%"}
     GROUP BY "concept"

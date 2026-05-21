@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseSpanishNumber, applySign } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -18,12 +20,14 @@ export async function GET(request: NextRequest) {
   const year = searchParams.get("year");
   const month = searchParams.get("month");
   const future = searchParams.get("future") === "true";
+  const income = searchParams.get("income") === "true";
 
   const where: Record<string, unknown> = {};
   if (group) where.group = group;
   if (bank_id) where.bank_id = bank_id;
   if (type) where.type = type;
-  if (concept) where.concept = { contains: concept };
+  if (concept) where.concept = { contains: concept, mode: "insensitive" };
+  if (income) where.amount = { gt: 0 };
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
       bank_id: body.bank_id,
       account_id: accountId || null,
       group: body.group,
-      type: body.type,
+      type: body.type ? body.type.charAt(0).toUpperCase() + body.type.slice(1).toLowerCase() : body.type,
       is_recurring: body.is_recurring || false,
       recurring_period: body.recurring_period || null,
       timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
