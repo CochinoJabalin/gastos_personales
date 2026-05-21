@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import archiver from "archiver";
 import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 
 function formatDate(date: Date): string {
   const y = date.getFullYear();
@@ -15,9 +14,6 @@ function formatDate(date: Date): string {
 }
 
 export interface BackupOptions {
-  includeTransactions?: boolean;
-  includeMappingRules?: boolean;
-  includeBanks?: boolean;
   targetDir?: string;
 }
 
@@ -25,20 +21,11 @@ export interface BackupResult {
   filename: string;
   filepath: string;
   size: number;
-  stats: {
-    transactions: number;
-    mappingRules: number;
-    banks: number;
-  };
+  stats: Record<string, number>;
 }
 
 export async function createBackup(options: BackupOptions = {}): Promise<BackupResult> {
-  const {
-    includeTransactions = true,
-    includeMappingRules = true,
-    includeBanks = true,
-    targetDir = "/backups",
-  } = options;
+  const { targetDir = "/backups" } = options;
 
   if (!existsSync(targetDir)) {
     mkdirSync(targetDir, { recursive: true });
@@ -49,81 +36,72 @@ export async function createBackup(options: BackupOptions = {}): Promise<BackupR
   const filepath = join(targetDir, filename);
 
   const data: Record<string, unknown> = {};
+  const stats: Record<string, number> = {};
 
-  if (includeTransactions) {
-    const transactions = await prisma.transaction.findMany({
-      include: { bank: true, account: true },
-      orderBy: { timestamp: "desc" },
-    });
-    data.transactions = transactions.map((t) => ({
-      id: t.id,
-      timestamp: t.timestamp,
-      concept: t.concept,
-      amount: Number(t.amount),
-      bank: t.bank?.bank_name ?? null,
-      account: t.account?.account_label ?? null,
-      group: t.group,
-      type: t.type,
-      is_recurring: t.is_recurring,
-      recurring_period: t.recurring_period,
-      comentarios: t.comentarios,
-    }));
-  }
+  const banks = await prisma.bank.findMany({
+    include: { accounts: true },
+    orderBy: { bank_name: "asc" },
+  });
+  data.banks = banks;
+  stats.banks = banks.length;
+  stats.accounts = banks.reduce((sum, b) => sum + b.accounts.length, 0);
 
-  if (includeMappingRules) {
-    const rules = await prisma.mappingRule.findMany({
-      include: { default_bank: true },
-      orderBy: { pattern: "asc" },
-    });
-    data.mappingRules = rules.map((r) => ({
-      id: r.id,
-      pattern: r.pattern,
-      default_bank: r.default_bank?.bank_name ?? null,
-      default_group: r.default_group,
-      default_type: r.default_type,
-    }));
-  }
+  const originators = await prisma.originator.findMany({ orderBy: { name: "asc" } });
+  data.originators = originators;
+  stats.originators = originators.length;
 
-  if (includeBanks) {
-    const banks = await prisma.bank.findMany({
-      include: { accounts: true },
-      orderBy: { bank_name: "asc" },
-    });
-    data.banks = banks.map((b) => ({
-      id: b.id,
-      bank_name: b.bank_name,
-      account_label: b.account_label,
-      iban: b.iban,
-      balance: Number(b.balance),
-      created_at: b.created_at,
-      accounts: b.accounts.map((a) => ({
-        id: a.id,
-        account_label: a.account_label,
-        iban: a.iban,
-        balance: Number(a.balance),
-        is_default: a.is_default,
-        interest_rate: Number(a.interest_rate),
-        interest_period: a.interest_period,
-        last_interest_date: a.last_interest_date,
-        created_at: a.created_at,
-      })),
-    }));
-  }
+  const instruments = await prisma.investmentInstrument.findMany({ orderBy: { ticker: "asc" } });
+  data.instruments = instruments;
+  stats.instruments = instruments.length;
+
+  const mappingRules = await prisma.mappingRule.findMany({ orderBy: { pattern: "asc" } });
+  data.mappingRules = mappingRules;
+  stats.mappingRules = mappingRules.length;
+
+  const transfers = await prisma.transfer.findMany({ orderBy: { created_at: "desc" } });
+  data.transfers = transfers;
+  stats.transfers = transfers.length;
+
+  const crowdlendingInvestments = await prisma.crowdlendingInvestment.findMany({
+    orderBy: { fecha_inicio: "desc" },
+  });
+  data.crowdlendingInvestments = crowdlendingInvestments;
+  stats.crowdlendingInvestments = crowdlendingInvestments.length;
+
+  const crowdlendingPayments = await prisma.crowdlendingPayment.findMany({
+    orderBy: { fecha: "desc" },
+  });
+  data.crowdlendingPayments = crowdlendingPayments;
+  stats.crowdlendingPayments = crowdlendingPayments.length;
+
+  const investmentHoldings = await prisma.investmentHolding.findMany({ orderBy: { created_at: "desc" } });
+  data.investmentHoldings = investmentHoldings;
+  stats.investmentHoldings = investmentHoldings.length;
+
+  const investmentLots = await prisma.investmentLot.findMany({ orderBy: { fecha_compra: "desc" } });
+  data.investmentLots = investmentLots;
+  stats.investmentLots = investmentLots.length;
+
+  const investmentTransactions = await prisma.investmentTransaction.findMany({
+    orderBy: { date: "desc" },
+  });
+  data.investmentTransactions = investmentTransactions;
+  stats.investmentTransactions = investmentTransactions.length;
+
+  const transactions = await prisma.transaction.findMany({
+    orderBy: { timestamp: "desc" },
+  });
+  data.transactions = transactions;
+  stats.transactions = transactions.length;
 
   data.exportedAt = new Date().toISOString();
-  data.version = "1.0";
+  data.version = "2.0";
 
   return new Promise((resolve, reject) => {
     const output = createWriteStream(filepath);
     const archive = archiver("zip", { zlib: { level: 9 } });
 
-    output.on("close", async () => {
-      const stats: BackupResult["stats"] = {
-        transactions: (data.transactions as unknown[])?.length ?? 0,
-        mappingRules: (data.mappingRules as unknown[])?.length ?? 0,
-        banks: (data.banks as unknown[])?.length ?? 0,
-      };
-
+    output.on("close", () => {
       resolve({
         filename,
         filepath,

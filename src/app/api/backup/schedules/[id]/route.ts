@@ -49,9 +49,6 @@ export async function PUT(
   if (body.time !== undefined) updateData.time = body.time;
   if (body.enabled !== undefined) updateData.enabled = body.enabled;
   if (body.path !== undefined) updateData.path = body.path;
-  if (body.includeTransactions !== undefined) updateData.includeTransactions = body.includeTransactions;
-  if (body.includeMappingRules !== undefined) updateData.includeMappingRules = body.includeMappingRules;
-  if (body.includeBanks !== undefined) updateData.includeBanks = body.includeBanks;
 
   if (body.time || body.frequency || body.dayOfWeek || body.dayOfMonth) {
     const frequency = body.frequency ?? existing.frequency;

@@ -32,8 +32,6 @@ class BackupScheduler {
     dayOfMonth: number | null;
     time: string;
     path: string | null;
-    includeTransactions: boolean;
-    includeMappingRules: boolean;
   }): void {
     this.unregister(schedule.id);
 
@@ -43,8 +41,6 @@ class BackupScheduler {
     const task = cron.schedule(expression, async () => {
       try {
         const result = await createBackup({
-          includeTransactions: schedule.includeTransactions,
-          includeMappingRules: schedule.includeMappingRules,
           targetDir: schedule.path ?? undefined,
         });
 

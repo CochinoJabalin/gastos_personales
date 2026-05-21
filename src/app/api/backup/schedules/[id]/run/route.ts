@@ -26,12 +26,7 @@ export async function POST(
   const config = await prisma.appConfig.findUnique({ where: { id: "default" } });
   const targetDir = schedule.path || config?.backupPath || "/backups";
 
-  const result = await createBackup({
-    includeTransactions: schedule.includeTransactions,
-    includeMappingRules: schedule.includeMappingRules,
-    includeBanks: schedule.includeBanks,
-    targetDir,
-  });
+  const result = await createBackup({ targetDir });
 
   await logBackup({
     scheduleId: schedule.id,

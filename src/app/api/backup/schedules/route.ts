@@ -43,9 +43,6 @@ export async function POST(request: NextRequest) {
       time: body.time,
       enabled: body.enabled !== false,
       path: body.path ?? null,
-      includeTransactions: body.includeTransactions !== false,
-      includeMappingRules: body.includeMappingRules !== false,
-      includeBanks: body.includeBanks !== false,
       nextRun,
     },
   });

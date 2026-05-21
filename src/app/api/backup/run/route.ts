@@ -6,24 +6,14 @@ import { logBackup } from "@/lib/backup-logs";
 import { prisma } from "@/lib/prisma";
 import { readFileSync } from "fs";
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
-  const body = await request.json().catch(() => ({}));
-  const includeTransactions = body.includeTransactions !== false;
-  const includeMappingRules = body.includeMappingRules !== false;
-  const includeBanks = body.includeBanks !== false;
 
   const config = await prisma.appConfig.findUnique({ where: { id: "default" } });
   const targetDir = config?.backupPath ?? "/backups";
 
-  const result = await createBackup({
-    includeTransactions,
-    includeMappingRules,
-    includeBanks,
-    targetDir,
-  });
+  const result = await createBackup({ targetDir });
 
   await logBackup({
     scheduleId: null,
