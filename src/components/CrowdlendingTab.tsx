@@ -119,14 +119,16 @@ export default function CrowdlendingTab() {
     if (statusFilter) params.set("status", statusFilter);
     if (originadorFilter) params.set("originador", originadorFilter);
 
-    const [invData, sumData, banksData] = await Promise.all([
+    const [invData, sumData, banksData, originatorsData] = await Promise.all([
       fetch(`/api/investments/crowdlending?${params}`).then((r) => r.json()),
       fetch("/api/investments/crowdlending/summary").then((r) => r.json()),
       fetch("/api/banks").then((r) => r.json()),
+      fetch("/api/crowdlending/originators").then((r) => r.json()),
     ]);
 
     setInvestments(invData);
     setSummary(sumData);
+    setOriginators(originatorsData);
     const allAccounts: Account[] = [];
     for (const bank of banksData) {
       for (const acc of bank.accounts) {
@@ -315,8 +317,8 @@ export default function CrowdlendingTab() {
           className="bg-surface-container border border-outline-variant rounded-lg px-md py-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"
         >
           <option value="">{t("investments.crowdlending.originador_placeholder")}</option>
-          {ORIGINADORES.map((o) => (
-            <option key={o} value={o}>{o}</option>
+          {originators.map((o) => (
+            <option key={o.id} value={o.name}>{o.name}</option>
           ))}
         </select>
 
@@ -446,8 +448,8 @@ export default function CrowdlendingTab() {
                     onChange={(e) => setNewForm({ ...newForm, originador: e.target.value })}
                     className="w-full bg-surface-dim border border-outline-variant rounded-lg px-md py-sm text-body-md text-on-surface focus:outline-none focus:border-primary"
                   >
-                    {ORIGINADORES.map((o) => (
-                      <option key={o} value={o}>{o}</option>
+                    {originators.map((o) => (
+                      <option key={o.id} value={o.name}>{o.name}</option>
                     ))}
                   </select>
                 </div>

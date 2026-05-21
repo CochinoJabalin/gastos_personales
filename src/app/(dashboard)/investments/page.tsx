@@ -380,7 +380,12 @@ function OperationsTab() {
 
   const deleteOperation = async (id: string) => {
     if (!confirm(t("investments.confirm_delete"))) return;
-    await fetch(`/api/investments/transactions/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/investments/transactions/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Error al eliminar la operación");
+      return;
+    }
     fetchData();
   };
 

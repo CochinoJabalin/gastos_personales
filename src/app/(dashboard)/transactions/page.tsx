@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
 import ConceptCombobox from "@/components/ConceptCombobox";
 import { parseSpanishNumber, formatSpanish, isIncome } from "@/lib/format";
@@ -76,6 +76,21 @@ export default function TransactionsPage() {
   const [tab, setTab] = useState<"transactions" | "categories">("transactions");
   const [groups, setGroups] = useState<{ group: string; type: string; count: number }[]>([]);
   const [editingGroup, setEditingGroup] = useState<{ oldGroup: string; newGroup: string; newType: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchModal, setBatchModal] = useState<{ field: string; open: boolean }>({ field: "", open: false });
+  const [batchValue, setBatchValue] = useState("");
+  const originalConceptRef = useRef("");
+
+  const [catFilters, setCatFilters] = useState({
+    category: "",
+    type: "",
+  });
+  const [catGroups, setCatGroups] = useState<{ group: string; type: string; count: number }[]>([]);
+  const [migratingGroup, setMigratingGroup] = useState<string | null>(null);
+  const [migrateTarget, setMigrateTarget] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<{ group: string; type: string } | null>(null);
+  const [categoryTransactions, setCategoryTransactions] = useState<Transaction[]>([]);
+  const [loadingCatTx, setLoadingCatTx] = useState(false);
 
   const [filters, setFilters] = useState({
     year: new Date().getFullYear().toString(),
@@ -102,6 +117,31 @@ export default function TransactionsPage() {
       .catch(() => {});
   }
 
+  function fetchCatGroups() {
+    const params = new URLSearchParams();
+    if (catFilters.category) params.set("category", catFilters.category);
+    if (catFilters.type) params.set("type", catFilters.type);
+    const qs = params.toString();
+    fetch(`/api/transactions/groups${qs ? `?${qs}` : ""}`)
+      .then(r => r.json())
+      .then(setCatGroups)
+      .catch(() => {});
+  }
+
+  async function handleCategoryClick(g: { group: string; type: string }) {
+    setSelectedCategory(g);
+    setLoadingCatTx(true);
+    setCategoryTransactions([]);
+    try {
+      const res = await fetch(`/api/transactions?group=${encodeURIComponent(g.group)}&type=${encodeURIComponent(g.type)}&limit=1000`);
+      const data = await res.json();
+      setCategoryTransactions(data.data || []);
+    } catch {
+      setCategoryTransactions([]);
+    }
+    setLoadingCatTx(false);
+  }
+
   useEffect(() => {
     setPage(1);
   }, [filters.year, filters.month, filters.concept, filters.group, filters.type, showFuture]);
@@ -115,6 +155,10 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchTransactions();
   }, [page, filters, showFuture]);
+
+  useEffect(() => {
+    fetchCatGroups();
+  }, [catFilters]);
 
   function fetchBanks() {
     fetch("/api/banks").then(r => r.json()).then(setBanks).catch(() => {});
@@ -169,6 +213,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     if (!editingId) return;
+    if (editForm.concept === originalConceptRef.current) return;
     const timer = setTimeout(() => inferEditConcept(editForm.concept), 400);
     return () => clearTimeout(timer);
   }, [editForm.concept, editingId, inferEditConcept]);
@@ -179,6 +224,7 @@ export default function TransactionsPage() {
 
   function startEdit(t: Transaction) {
     setEditingId(t.id);
+    originalConceptRef.current = t.concept;
     setEditForm({
       concept: t.concept,
       amount: t.amount.toString(),
@@ -218,7 +264,69 @@ export default function TransactionsPage() {
 
   async function deleteTransaction(id: string) {
     if (!confirm("¿Eliminar esta transacción?")) return;
-    await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      alert("Error al eliminar la transacción");
+      return;
+    }
+    setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    fetchTransactions();
+    fetchGroups();
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`¿Eliminar ${selectedIds.size} transacciones seleccionadas?`)) return;
+    for (const id of selectedIds) {
+      const res = await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert(`Error al eliminar transacción ${id}`);
+        break;
+      }
+    }
+    setSelectedIds(new Set());
+    fetchTransactions();
+    fetchGroups();
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === transactions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(transactions.map(t => t.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBatchModal({ field: "", open: false });
+    setBatchValue("");
+  }
+
+  async function handleBatchUpdate() {
+    if (selectedIds.size === 0 || !batchModal.field || !batchValue) return;
+
+    await fetch("/api/transactions/batch-update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ids: Array.from(selectedIds),
+        data: { [batchModal.field]: batchValue },
+      }),
+    });
+
+    setSelectedIds(new Set());
+    setBatchModal({ field: "", open: false });
+    setBatchValue("");
     fetchTransactions();
   }
 
@@ -267,112 +375,246 @@ export default function TransactionsPage() {
       </div>
 
       {tab === "categories" ? (
-        <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
-                  <th className="p-md">Categoría</th>
-                  <th className="p-md">Tipo</th>
-                  <th className="p-md">Transacciones</th>
-                  <th className="p-md w-32">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant">
-                {groups.map((g) => (
-                  <tr key={`${g.group}-${g.type}`} className="hover:bg-surface-container-low transition-colors">
-                    {editingGroup?.oldGroup === g.group && editingGroup?.newType === g.type ? (
-                      <>
-                        <td className="p-md">
-                          <input
-                            type="text"
-                            value={editingGroup.newGroup}
-                            onChange={(e) =>
-                              setEditingGroup({ ...editingGroup, newGroup: e.target.value })
-                            }
-                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant w-full"
-                          />
-                        </td>
-                        <td className="p-md">
-                          <select
-                            value={editingGroup.newType}
-                            onChange={(e) =>
-                              setEditingGroup({ ...editingGroup, newType: e.target.value })
-                            }
-                            className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
-                          >
-                            {TYPES.map((t) => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
-                        <td className="p-md">
-                          <div className="flex gap-1">
-                            <button
-                              onClick={async () => {
-                                if (!editingGroup) return;
-                                await fetch("/api/transactions/bulk-update-category", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    oldGroup: editingGroup.oldGroup,
-                                    newGroup: editingGroup.newGroup || editingGroup.oldGroup,
-                                    newType: editingGroup.newType,
-                                  }),
-                                });
-                                setEditingGroup(null);
-                                fetchGroups();
-                                fetchTransactions();
-                              }}
-                              className="text-primary hover:underline text-body-sm"
-                            >
-                              Guardar
-                            </button>
-                            <button
-                              onClick={() => setEditingGroup(null)}
-                              className="text-on-surface-variant hover:text-on-surface text-body-sm"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </td>
-                      </>
+        selectedCategory ? (
+          <>
+            <div className="flex items-center gap-md mb-md">
+              <button onClick={() => setSelectedCategory(null)} className="px-md py-sm bg-surface-container-high text-on-surface rounded-lg text-body-sm">
+                ← Volver a categorías
+              </button>
+              <span className="text-body-sm font-medium text-on-surface">
+                {selectedCategory.group} / {selectedCategory.type}
+              </span>
+              <span className="text-body-sm text-on-surface-variant">
+                ({categoryTransactions.length} transacciones)
+              </span>
+            </div>
+            <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                      <th className="p-md">Fecha</th>
+                      <th className="p-md">Concepto</th>
+                      <th className="p-md">Banco</th>
+                      <th className="p-md text-right">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {loadingCatTx ? (
+                      <tr><td colSpan={4} className="p-lg text-center text-on-surface-variant">Cargando...</td></tr>
+                    ) : categoryTransactions.length === 0 ? (
+                      <tr><td colSpan={4} className="p-lg text-center text-on-surface-variant">No hay transacciones</td></tr>
                     ) : (
-                      <>
-                        <td className="p-md text-on-surface font-medium">{g.group}</td>
-                        <td className="p-md">
-                          <ConditionalChip
-                            label={g.type}
-                            variant={g.type === "Fijo" ? "info" : "warning"}
-                          />
-                        </td>
-                        <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
-                        <td className="p-md">
-                          <button
-                            onClick={() =>
-                              setEditingGroup({ oldGroup: g.group, newGroup: g.group, newType: g.type })
-                            }
-                            className="text-primary hover:underline text-body-sm"
-                          >
-                            Editar
-                          </button>
-                        </td>
-                      </>
+                      categoryTransactions.map(t => (
+                        <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
+                          <td className="p-md text-on-surface-variant">{new Date(t.timestamp).toLocaleDateString("es")}</td>
+                          <td className="p-md text-on-surface font-medium">{t.concept}</td>
+                          <td className="p-md text-on-surface-variant text-body-sm">{t.bank?.bank_name || "-"}</td>
+                          <td className={`p-md text-right font-mono ${Number(t.amount) < 0 ? "text-error" : "text-success"}`}>
+                            {formatSpanish(Math.abs(Number(t.amount)))}€
+                          </td>
+                        </tr>
+                      ))
                     )}
-                  </tr>
-                ))}
-                {groups.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="p-lg text-center text-on-surface-variant">
-                      No hay transacciones
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+              <div className="flex flex-wrap gap-sm items-end bg-surface-container border border-outline-variant rounded-xl p-md">
+              <div className="flex flex-col gap-xs">
+                <label className="text-label-caps text-on-surface-variant">Categoría</label>
+                <input
+                  type="text"
+                  value={catFilters.category}
+                  onChange={e => setCatFilters(prev => ({ ...prev, category: e.target.value }))}
+                  placeholder="Buscar..."
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant w-40"
+                />
+              </div>
+              <div className="flex flex-col gap-xs">
+                <label className="text-label-caps text-on-surface-variant">Tipo</label>
+                <select
+                  value={catFilters.type}
+                  onChange={e => setCatFilters(prev => ({ ...prev, type: e.target.value }))}
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant"
+                >
+                  <option value="">Todos</option>
+                  {TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                      <th className="p-md">Categoría</th>
+                      <th className="p-md">Tipo</th>
+                      <th className="p-md">Transacciones</th>
+                      <th className="p-md w-32">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {catGroups.map((g) => (
+                      <tr key={`${g.group}-${g.type}`} className="hover:bg-surface-container-low transition-colors">
+                        {editingGroup?.oldGroup === g.group && editingGroup?.newType === g.type ? (
+                          <>
+                            <td className="p-md">
+                              <input
+                                type="text"
+                                value={editingGroup.newGroup}
+                                onChange={(e) =>
+                                  setEditingGroup({ ...editingGroup, newGroup: e.target.value })
+                                }
+                                className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant w-full"
+                              />
+                            </td>
+                            <td className="p-md">
+                              <select
+                                value={editingGroup.newType}
+                                onChange={(e) =>
+                                  setEditingGroup({ ...editingGroup, newType: e.target.value })
+                                }
+                                className="bg-surface-container-high rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant"
+                              >
+                                {TYPES.map((t) => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
+                            <td className="p-md">
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={async () => {
+                                    if (!editingGroup) return;
+                                    await fetch("/api/transactions/bulk-update-category", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        oldGroup: editingGroup.oldGroup,
+                                        newGroup: editingGroup.newGroup || editingGroup.oldGroup,
+                                        newType: editingGroup.newType,
+                                      }),
+                                    });
+                                    setEditingGroup(null);
+                                    fetchGroups();
+                                    fetchTransactions();
+                                    fetchCatGroups();
+                                  }}
+                                  className="text-primary hover:underline text-body-sm"
+                                >
+                                  Guardar
+                                </button>
+                                <button
+                                  onClick={() => setEditingGroup(null)}
+                                  className="text-on-surface-variant hover:text-on-surface text-body-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="p-md">
+                              <button
+                                onClick={() => handleCategoryClick({ group: g.group, type: g.type })}
+                                className="text-primary hover:underline font-medium text-left"
+                              >
+                                {g.group}
+                              </button>
+                            </td>
+                            <td className="p-md">
+                              <ConditionalChip
+                                label={g.type}
+                                variant={g.type === "Fijo" ? "info" : "warning"}
+                              />
+                            </td>
+                            <td className="p-md text-body-sm text-on-surface-variant">{g.count}</td>
+                            <td className="p-md">
+                              {migratingGroup === g.group ? (
+                                <div className="flex items-center gap-1">
+                                  <select
+                                    value={migrateTarget}
+                                    onChange={e => setMigrateTarget(e.target.value)}
+                                    className="bg-surface-container-high rounded px-1 py-1 text-label-caps text-on-surface border border-outline-variant w-28"
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    {[...new Set(catGroups.map(cg => cg.group))]
+                                      .filter(cg => cg !== g.group)
+                                      .sort()
+                                      .map(cg => (
+                                        <option key={cg} value={cg}>{cg}</option>
+                                      ))}
+                                  </select>
+                                  <button
+                                    onClick={async () => {
+                                      if (!migrateTarget) return;
+                                      await fetch("/api/transactions/bulk-update-category", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ oldGroup: g.group, newGroup: migrateTarget }),
+                                      });
+                                      setMigratingGroup(null);
+                                      setMigrateTarget("");
+                                      fetchGroups();
+                                      fetchTransactions();
+                                      fetchCatGroups();
+                                    }}
+                                    className="text-primary hover:underline text-label-caps"
+                                  >
+                                    Migrar
+                                  </button>
+                                  <button
+                                    onClick={() => { setMigratingGroup(null); setMigrateTarget(""); }}
+                                    className="text-on-surface-variant hover:text-on-surface text-label-caps"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingGroup({ oldGroup: g.group, newGroup: g.group, newType: g.type });
+                                      setMigratingGroup(null);
+                                    }}
+                                    className="text-primary hover:underline text-body-sm"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => { setMigratingGroup(g.group); setMigrateTarget(""); setEditingGroup(null); }}
+                                    className="text-warning hover:underline text-body-sm"
+                                  >
+                                    Migrar
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                    {catGroups.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="p-lg text-center text-on-surface-variant">
+                          No hay transacciones
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )
       ) : (
         <>
           <div className="flex flex-wrap gap-sm items-end bg-surface-container border border-outline-variant rounded-xl p-md">
@@ -444,11 +686,111 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="bg-primary-container border border-outline-variant rounded-xl p-md flex items-center gap-md flex-wrap">
+          <span className="text-body-sm font-medium text-on-primary-container">
+            {selectedIds.size} seleccionado{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+
+          {!batchModal.open ? (
+            <>
+              <button onClick={() => { setBatchModal({ field: "timestamp", open: true }); setBatchValue(""); }} className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm">
+                Cambiar Fecha
+              </button>
+              <button onClick={() => { setBatchModal({ field: "concept", open: true }); setBatchValue(""); }} className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm">
+                Cambiar Concepto
+              </button>
+              <button onClick={() => { setBatchModal({ field: "bank_id", open: true }); setBatchValue(""); }} className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm">
+                Cambiar Banco
+              </button>
+              <button onClick={() => { setBatchModal({ field: "group", open: true }); setBatchValue(""); }} className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm">
+                Cambiar Categoría
+              </button>
+              <button onClick={() => { setBatchModal({ field: "type", open: true }); setBatchValue(""); }} className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm">
+                Cambiar Tipo
+              </button>
+              <button onClick={deleteSelected} className="px-md py-sm bg-error text-on-error rounded-lg text-body-sm">
+                Eliminar seleccionadas
+              </button>
+              <button onClick={clearSelection} className="px-md py-sm bg-surface-container-high text-on-surface rounded-lg text-body-sm">
+                Deseleccionar todo
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-md flex-wrap">
+              <span className="text-body-sm text-on-primary-container">
+                {batchModal.field === "timestamp" ? "Nueva fecha:" :
+                 batchModal.field === "bank_id" ? "Nuevo banco:" :
+                 batchModal.field === "group" ? "Nueva categoría:" :
+                 batchModal.field === "type" ? "Nuevo tipo:" :
+                 batchModal.field === "concept" ? "Nuevo concepto:" : ""}
+              </span>
+              {batchModal.field === "timestamp" && (
+                <input type="date" value={batchValue} onChange={e => setBatchValue(e.target.value)}
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant" />
+              )}
+              {batchModal.field === "bank_id" && (
+                <select value={batchValue} onChange={e => setBatchValue(e.target.value)}
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant">
+                  <option value="">Seleccionar</option>
+                  {banks.map(b => (
+                    <option key={b.id} value={b.id}>{b.bank_name}</option>
+                  ))}
+                </select>
+              )}
+              {batchModal.field === "group" && (
+                <select value={batchValue} onChange={e => setBatchValue(e.target.value)}
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant">
+                  <option value="">Seleccionar</option>
+                  {(categories.length > 0 ? categories : CATEGORIES).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              )}
+              {batchModal.field === "type" && (
+                <select value={batchValue} onChange={e => setBatchValue(e.target.value)}
+                  className="bg-surface-container-high rounded px-2 py-1.5 text-body-sm text-on-surface border border-outline-variant">
+                  <option value="">Seleccionar</option>
+                  {TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
+              {batchModal.field === "concept" && (
+                <div className="min-w-[200px]">
+                  <ConceptCombobox
+                    value={batchValue}
+                    onChange={setBatchValue}
+                    wrapperClassName="bg-surface-container-high rounded border border-outline-variant"
+                    inputClassName="w-full bg-transparent border-none focus:ring-0 text-body-sm px-2 py-1.5 text-on-surface"
+                  />
+                </div>
+              )}
+              <button onClick={handleBatchUpdate} disabled={!batchValue}
+                className="px-md py-sm bg-primary text-on-primary rounded-lg text-body-sm disabled:opacity-50">
+                Aplicar
+              </button>
+              <button onClick={() => { setBatchModal({ field: "", open: false }); setBatchValue(""); }}
+                className="px-md py-sm bg-surface-container-high text-on-surface rounded-lg text-body-sm">
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                <th className="p-md w-10">
+                  <input
+                    type="checkbox"
+                    onChange={toggleSelectAll}
+                    checked={selectedIds.size === transactions.length && transactions.length > 0}
+                  />
+                </th>
                 <th className="p-md">Fecha</th>
                 <th className="p-md">Concepto</th>
                 <th className="p-md">Banco</th>
@@ -461,13 +803,13 @@ export default function TransactionsPage() {
             <tbody className="divide-y divide-outline-variant">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-lg text-center text-on-surface-variant">
+                  <td colSpan={8} className="p-lg text-center text-on-surface-variant">
                     Cargando...
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-lg text-center text-on-surface-variant">
+                  <td colSpan={8} className="p-lg text-center text-on-surface-variant">
                     No hay transacciones
                   </td>
                 </tr>
@@ -476,6 +818,13 @@ export default function TransactionsPage() {
                   <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
                     {editingId === t.id ? (
                       <>
+                        <td className="p-md w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(t.id)}
+                            onChange={() => toggleSelect(t.id)}
+                          />
+                        </td>
                         <td className="p-md">
                           <input
                             type="date"
@@ -559,6 +908,13 @@ export default function TransactionsPage() {
                       </>
                     ) : (
                       <>
+                        <td className="p-md w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(t.id)}
+                            onChange={() => toggleSelect(t.id)}
+                          />
+                        </td>
                         <td className="p-md text-on-surface-variant">
                           {new Date(t.timestamp).toLocaleDateString("es")}
                         </td>

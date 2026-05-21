@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import StatCard from "@/components/StatCard";
 import ConditionalChip from "@/components/ConditionalChip";
 import { formatSpanish } from "@/lib/format";
@@ -55,6 +55,17 @@ export default function MatrixPage() {
   const [detailTxs, setDetailTxs] = useState<Array<{ id: string; concept: string; amount: number; timestamp: string; comentarios?: string | null; bank: { bank_name: string } | null }>>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const { hideValues, setHideValues } = useView();
+  const [sortBy, setSortBy] = useState<string>("total");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  function handleSort(col: string) {
+    if (sortBy === col) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(col);
+      setSortAsc(false);
+    }
+  }
 
   const prevAvgByGroup = useMemo(() => {
     const map = new Map<string, number>();
@@ -64,12 +75,40 @@ export default function MatrixPage() {
     return map;
   }, [data?.prevGroupsMonthly]);
 
-  useEffect(() => {
+  const sortedGroups = useMemo(() => {
+    const filtered = (data?.groupsMonthly || []).filter(g => g.type === detailType);
+    return [...filtered].sort((a, b) => {
+      let valA: number, valB: number;
+      if (sortBy === "total") {
+        valA = a.total;
+        valB = b.total;
+      } else if (sortBy === "avg") {
+        valA = Math.round(a.total / 12 * 100) / 100;
+        valB = Math.round(b.total / 12 * 100) / 100;
+      } else if (sortBy === "prevAvg") {
+        valA = prevAvgByGroup.get(a.group) || 0;
+        valB = prevAvgByGroup.get(b.group) || 0;
+      } else if (sortBy.startsWith("month-")) {
+        const idx = parseInt(sortBy.split("-")[1], 10);
+        valA = a.months[idx] || 0;
+        valB = b.months[idx] || 0;
+      } else {
+        return 0;
+      }
+      return sortAsc ? valA - valB : valB - valA;
+    });
+  }, [data?.groupsMonthly, detailType, sortBy, sortAsc, prevAvgByGroup]);
+
+  const fetchMatrix = useCallback(() => {
     fetch(`/api/dashboard/matrix?year=${year}`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => {});
   }, [year]);
+
+  useEffect(() => {
+    fetchMatrix();
+  }, [fetchMatrix]);
 
   const months = data?.months || [];
 
@@ -92,7 +131,20 @@ export default function MatrixPage() {
     setDetail({ group, month: monthIdx + 1, label: MONTH_LABELS[monthIdx], amount });
     setDetailLoading(true);
     setDetailTxs([]);
+    fetchMatrix();
     fetch(`/api/transactions?year=${year}&month=${monthIdx + 1}&group=${encodeURIComponent(group)}&type=${detailType}&limit=100`)
+      .then(r => r.json())
+      .then(data => setDetailTxs(data.data || []))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  }
+
+  function openIncomeDetail(monthIdx: number, amount: number) {
+    setDetail({ group: "Ingresos", month: monthIdx + 1, label: MONTH_LABELS[monthIdx], amount });
+    setDetailLoading(true);
+    setDetailTxs([]);
+    fetchMatrix();
+    fetch(`/api/transactions?year=${year}&month=${monthIdx + 1}&income=true&limit=100`)
       .then(r => r.json())
       .then(data => setDetailTxs(data.data || []))
       .catch(() => {})
@@ -231,7 +283,13 @@ export default function MatrixPage() {
                     Ingresos
                   </td>
                   {months.map((m) => (
-                    <td key={m.month} className="p-sm text-primary tabular-nums val-euro">
+                    <td
+                      key={m.month}
+                      className={`p-sm text-primary tabular-nums val-euro cursor-pointer transition-colors ${
+                        m.income > 0 ? "hover:bg-primary-container/30" : ""
+                      }`}
+                      onClick={() => m.income > 0 && openIncomeDetail(m.month - 1, m.income)}
+                    >
                       {m.income.toLocaleString("es")}€
                     </td>
                   ))}
@@ -356,65 +414,104 @@ export default function MatrixPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-high border-b border-outline-variant">
-                <th className="p-sm text-label-caps text-on-surface-variant sticky left-0 bg-surface-container-high z-10">
-                  Categoría
-                </th>
-                {months.map((m) => (
-                  <th key={m.month} className="p-sm text-label-caps text-on-surface-variant">
-                    {m.label.substring(0, 3).toUpperCase()}
+              <thead>
+                <tr className="bg-surface-container-high border-b border-outline-variant">
+                  <th className="p-sm text-label-caps text-on-surface-variant sticky left-0 bg-surface-container-high z-10">
+                    Categoría
                   </th>
-                ))}
-                <th className="p-sm text-label-caps text-white">
-                  Total
-                </th>
-                <th className="p-sm text-label-caps text-on-surface-variant">
-                  Media
-                </th>
-                <th className="p-sm text-label-caps text-on-surface-variant">
-                  Media Año Ant.
-                </th>
-              </tr>
-            </thead>
+                  {months.map((m) => (
+                    <th
+                      key={m.month}
+                      className="p-sm text-label-caps text-on-surface-variant cursor-pointer hover:bg-surface-container-higher select-none"
+                      onClick={() => handleSort(`month-${m.month - 1}`)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {m.label.substring(0, 3).toUpperCase()}
+                        {sortBy === `month-${m.month - 1}` && (
+                          <span className="material-symbols-outlined text-sm">
+                            {sortAsc ? "arrow_upward" : "arrow_downward"}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  ))}
+                  <th
+                    className="p-sm text-label-caps text-white cursor-pointer hover:brightness-125 select-none"
+                    onClick={() => handleSort("total")}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Total
+                      {sortBy === "total" && (
+                        <span className="material-symbols-outlined text-sm">
+                          {sortAsc ? "arrow_upward" : "arrow_downward"}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                  <th
+                    className="p-sm text-label-caps text-on-surface-variant cursor-pointer hover:bg-surface-container-higher select-none"
+                    onClick={() => handleSort("avg")}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Media
+                      {sortBy === "avg" && (
+                        <span className="material-symbols-outlined text-sm">
+                          {sortAsc ? "arrow_upward" : "arrow_downward"}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                  <th
+                    className="p-sm text-label-caps text-on-surface-variant cursor-pointer hover:bg-surface-container-higher select-none"
+                    onClick={() => handleSort("prevAvg")}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Media Año Ant.
+                      {sortBy === "prevAvg" && (
+                        <span className="material-symbols-outlined text-sm">
+                          {sortAsc ? "arrow_upward" : "arrow_downward"}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                </tr>
+              </thead>
             <tbody className="text-data-mono text-body-sm">
-              {data?.groupsMonthly
-                .filter((g) => g.type === detailType)
-                .map((g) => {
-                  const avg = Math.round((g.total / 12) * 100) / 100;
-                  return (
-                    <tr key={g.group} className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
-                      <td className="p-sm font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">
-                        {g.group}
+              {sortedGroups.map((g) => {
+                const avg = Math.round((g.total / 12) * 100) / 100;
+                return (
+                  <tr key={g.group} className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
+                    <td className="p-sm font-semibold text-on-surface sticky left-0 bg-surface-container z-10 border-r border-outline-variant">
+                      {g.group}
+                    </td>
+                     {g.months.map((m, i) => (
+                      <td
+                        key={i}
+                        className={`p-sm tabular-nums cursor-pointer transition-colors ${
+                          m > 0
+                            ? "hover:bg-primary-container/30 text-on-surface"
+                            : "text-on-surface-variant/40"
+                        }`}
+                        onClick={() => m > 0 && openDetail(g.group, i, m)}
+                      >
+                        <span className="val-euro">{m > 0 ? `${m.toLocaleString("es")}€` : "—"}</span>
                       </td>
-                       {g.months.map((m, i) => (
-                        <td
-                          key={i}
-                          className={`p-sm tabular-nums cursor-pointer transition-colors ${
-                            m > 0
-                              ? "hover:bg-primary-container/30 text-on-surface"
-                              : "text-on-surface-variant/40"
-                          }`}
-                          onClick={() => m > 0 && openDetail(g.group, i, m)}
-                        >
-                          <span className="val-euro">{m > 0 ? `${m.toLocaleString("es")}€` : "—"}</span>
-                        </td>
-                      ))}
-                      <td className="p-sm font-bold text-white tabular-nums val-euro">
-                        {g.total.toLocaleString("es")}€
-                      </td>
-                      <td className="p-sm font-bold tabular-nums val-euro">
-                        {avg.toLocaleString("es")}€
-                      </td>
-                      <td className="p-sm text-on-surface-variant tabular-nums val-euro">
-                        {prevAvgByGroup.has(g.group)
-                          ? `${prevAvgByGroup.get(g.group)!.toLocaleString("es")}€`
-                          : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              {(!data?.groupsMonthly || data.groupsMonthly.filter(g => g.type === detailType).length === 0) && (
+                    ))}
+                    <td className="p-sm font-bold text-white tabular-nums val-euro">
+                      {g.total.toLocaleString("es")}€
+                    </td>
+                    <td className="p-sm font-bold tabular-nums val-euro">
+                      {avg.toLocaleString("es")}€
+                    </td>
+                    <td className="p-sm text-on-surface-variant tabular-nums val-euro">
+                      {prevAvgByGroup.has(g.group)
+                        ? `${prevAvgByGroup.get(g.group)!.toLocaleString("es")}€`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {sortedGroups.length === 0 && (
                 <tr>
                   <td colSpan={months.length + 3} className="p-lg text-center text-on-surface-variant">
                     No hay categorías con {detailType === "Fijo" ? "gastos fijos" : "gastos variables"}
@@ -439,7 +536,7 @@ export default function MatrixPage() {
               <div>
                 <h3 className="text-headline-md text-on-surface">{detail.group}</h3>
                 <p className="text-body-sm text-on-surface-variant">
-                  {detail.label} {year} · {detailType}
+                  {detail.label} {year}{detail.group !== "Ingresos" ? ` · ${detailType}` : ""}
                 </p>
               </div>
               <div className="flex items-center gap-md">
