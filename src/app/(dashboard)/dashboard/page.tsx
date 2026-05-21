@@ -51,6 +51,22 @@ interface Bank {
   balance: number;
 }
 
+interface InvestmentSummary {
+  valor_total: number;
+  total_invertido: number;
+  tipo_allocation: Record<string, number>;
+  holding_count: number;
+}
+
+interface InvestmentGoals {
+  allocations: Record<string, number>;
+}
+
+interface BudgetCategoryConfig {
+  necessities: string[];
+  desires: string[];
+}
+
 interface MatrixResponse {
   year: number;
   months: MonthData[];
@@ -69,6 +85,13 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [matrix, setMatrix] = useState<MatrixResponse | null>(null);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [investments, setInvestments] = useState<InvestmentSummary | null>(null);
+  const [investmentGoals, setInvestmentGoals] = useState<InvestmentGoals | null>(null);
+  const [budgetConfig, setBudgetConfig] = useState<BudgetCategoryConfig>({ necessities: [], desires: [] });
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryModalType, setCategoryModalType] = useState<"necessities" | "desires">("necessities");
+  const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
+  const [savingBudgetConfig, setSavingBudgetConfig] = useState(false);
   const [loading, setLoading] = useState(true);
   const { hideValues, setHideValues } = useView();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -93,11 +116,17 @@ export default function DashboardPage() {
       fetch(`/api/dashboard/summary?year=${selectedYear}`).then((r) => r.json()),
       fetch(`/api/dashboard/matrix?year=${selectedYear}`).then((r) => r.json()),
       fetch("/api/banks").then((r) => r.json()),
+      fetch("/api/investments/summary").then((r) => r.json()).catch(() => null),
+      fetch("/api/investments/goals").then((r) => r.json()).catch(() => null),
+      fetch("/api/budget-categories").then((r) => r.json()).catch(() => ({ necessities: [], desires: [] })),
     ])
-      .then(([s, m, b]) => {
+      .then(([s, m, b, inv, goals, budgetCfg]) => {
         setSummary(s);
         setMatrix(m);
         setBanks(b || []);
+        setInvestments(inv);
+        setInvestmentGoals(goals);
+        setBudgetConfig(budgetCfg || { necessities: [], desires: [] });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -188,7 +217,10 @@ export default function DashboardPage() {
   const barData = matrix
     ? matrix.months.slice(0, monthsSoFar).map((m) => ({
         label: monthLabels[m.month - 1],
-        value: m.expenses,
+        segments: [
+          { value: m.income, color: "#adc6ff" },   // Ingreso (azul)
+          { value: m.expenses, color: "#ffb786" }, // Gasto (naranja)
+        ],
       }))
     : [];
 
@@ -198,16 +230,6 @@ export default function DashboardPage() {
 
   const currMonthData = matrix?.months[currentMonth];
   const prevMonthData = currentMonth > 0 ? matrix?.months[currentMonth - 1] : null;
-
-  const incomeDelta = prevMonthData && currMonthData
-    ? Math.round((currMonthData.income - prevMonthData.income) * 100) / 100
-    : 0;
-  const expenseDelta = prevMonthData && currMonthData
-    ? Math.round((currMonthData.expenses - prevMonthData.expenses) * 100) / 100
-    : 0;
-  const netDelta = prevMonthData && currMonthData
-    ? Math.round((currMonthData.net - prevMonthData.net) * 100) / 100
-    : 0;
 
   const savingsRate = summary?.savings_rate || 0;
   const savingsPositive = savingsRate >= 15;
@@ -222,28 +244,11 @@ export default function DashboardPage() {
 
   const maxCatExpense = topCats.length > 0 ? topCats[0].expenses : 1;
 
-  const monthsAvailable = matrix?.months.filter((m) => m.income > 0 || m.expenses > 0).length || 1;
   const yearProgress = Math.round((monthsSoFar / 12) * 100);
 
   const totalBankBalance = banks.reduce((sum, b) => sum + b.balance, 0);
 
-  const monthsWithData = matrix?.months.filter((m) => m.income > 0 || m.expenses > 0) || [];
-  const positiveMonths = monthsWithData.filter((m) => m.net > 0).length;
-
-  const netMonths = matrix?.months.map((m) => m.net) || [];
-  const totalNet = netMonths.reduce((s, v) => s + v, 0);
-  const avgNet = monthsAvailable > 0 ? totalNet / monthsAvailable : 0;
-  const negMonths = netMonths.filter((v) => v < 0).length;
-
-  const healthRaw = Math.max(0, Math.min(100, 50 + savingsRate * 2 - negMonths * 5));
-  const healthScore = Math.round(healthRaw);
-  const healthColor = healthScore >= 70 ? "#10B981" : healthScore >= 40 ? "#F59E0B" : "#EF4444";
-  const healthLabel = healthScore >= 70 ? "Buena" : healthScore >= 40 ? "Regular" : "Crítica";
-
   const avgMonthlyExpense = monthsSoFar > 0 ? totalExpensesYTD / monthsSoFar : 0;
-  const projectedOverspend = avgMonthlyExpense > 0
-    ? Math.round((avgMonthlyExpense * 12 - (matrix?.yearly.income || 0)) * 100) / 100
-    : 0;
 
   const avgMonthlyFixed = matrix?.averages?.fixed || 0;
   const avgMonthlyVariable = matrix?.averages?.variable || 0;
@@ -286,8 +291,8 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Row 1: Balance Total + Tasa de Ahorro + Salud Financiera + vs Mes Anterior + Resumen Anual */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-gutter">
+      {/* Row 1: Balance Total + Tasa de Ahorro + Resumen Anual */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
         {/* Balance Total */}
         <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
           <div className="flex flex-col gap-sm">
@@ -333,74 +338,6 @@ export default function DashboardPage() {
             </span>
             </ValueBlur>
           </div>
-        </section>
-
-        {/* Salud Financiera */}
-        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
-          <div className="flex flex-col gap-sm">
-            <div className="flex items-center gap-sm">
-              <div className="relative w-8 h-8">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2D3748" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15.915"
-                    fill="transparent"
-                    stroke={healthColor}
-                    strokeWidth="3"
-                    strokeDasharray={`${(healthScore / 100) * 100} 100`}
-                    strokeLinecap="round"
-                    className="transition-all duration-700"
-                  />
-                </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-bold tabular-nums" style={{ color: healthColor }}>{healthScore}</span>
-                  </div>
-              </div>
-              <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Salud Financiera</p>
-            </div>
-            <p className="text-body-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
-          </div>
-          <div className="flex flex-col gap-1 text-[9px]">
-            <span className="text-on-surface-variant">{positiveMonths}/{monthsWithData.length} meses positivos</span>
-            <span className="text-on-surface-variant">{savingsRate.toFixed(0)}% tasa de ahorro</span>
-          </div>
-        </section>
-
-        {/* Comparativa mensual */}
-        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
-          <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">vs Mes Anterior</p>
-          {prevMonthData && currMonthData ? (
-            <div className="flex flex-col gap-sm mt-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] text-on-surface-variant">Ingresos</span>
-                <ValueBlur hidden={hideValues}>
-                <span className={`text-label-caps tabular-nums val-euro ${incomeDelta >= 0 ? "text-positive" : "text-critical"}`}>
-                  {incomeDelta >= 0 ? "+" : ""}{incomeDelta.toLocaleString("es")}€
-                </span>
-                </ValueBlur>
-              </div>
-              <div className="w-full h-px bg-[#2D3748]" />
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] text-on-surface-variant">Gastos</span>
-                <ValueBlur hidden={hideValues}>
-                <span className={`text-label-caps tabular-nums val-euro ${expenseDelta <= 0 ? "text-positive" : "text-critical"}`}>
-                  {expenseDelta > 0 ? "+" : ""}{expenseDelta.toLocaleString("es")}€
-                </span>
-                </ValueBlur>
-              </div>
-              <div className="w-full h-px bg-[#2D3748]" />
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] text-on-surface-variant">Neto</span>
-                <ValueBlur hidden={hideValues}>
-                <span className={`text-label-caps tabular-nums val-euro font-bold ${netDelta >= 0 ? "text-positive" : "text-critical"}`}>
-                  {netDelta >= 0 ? "+" : ""}{netDelta.toLocaleString("es")}€
-                </span>
-                </ValueBlur>
-              </div>
-            </div>
-          ) : (
-            <span className="text-[9px] text-on-surface-variant italic mt-xs">Sin datos</span>
-          )}
         </section>
 
         {/* Resumen Anual */}
@@ -551,12 +488,12 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mt-sm">
             <div className="flex items-center gap-lg">
               <div className="flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
-                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
-              </div>
-              <div className="flex items-center gap-xs">
                 <span className="w-2 h-2 rounded-sm bg-[#adc6ff]" />
                 <span className="text-label-caps text-[9px] text-on-surface-variant">Ingresos</span>
+              </div>
+              <div className="flex items-center gap-xs">
+                <span className="w-2 h-2 rounded-sm bg-[#ffb786]" />
+                <span className="text-label-caps text-[9px] text-on-surface-variant">Gastos</span>
               </div>
               <div className="flex items-center gap-xs">
                 <span className="w-1 h-2 bg-positive rounded-sm" />
@@ -641,6 +578,435 @@ export default function DashboardPage() {
         </section>
       </div>
 
+      {/* Row 5: Proyección Fin de Mes + Salud Financiera (50/30/20) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        {/* Proyección Fin de Mes */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center gap-sm">
+            <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-sm text-warning">schedule</span>
+            </div>
+            <h3 className="text-label-caps text-on-surface-variant uppercase">Proyección Fin de Mes</h3>
+          </div>
+          {(() => {
+            const today = new Date();
+            const dayOfMonth = today.getDate();
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            const daysRemaining = daysInMonth - dayOfMonth;
+            
+            const currentVariable = currMonthData?.variable || 0;
+            const dailyVariableRate = dayOfMonth > 0 ? currentVariable / dayOfMonth : 0;
+            const projectedVariable = dailyVariableRate * daysInMonth;
+            
+            const currentFixed = currMonthData?.fixed || 0;
+            const projectedExpenses = projectedVariable + currentFixed;
+            const projectedIncome = currMonthData?.income || 0;
+            const projectedNet = projectedIncome - projectedExpenses;
+            const projectedSavingsRate = projectedIncome > 0 ? (projectedNet / projectedIncome) * 100 : 0;
+            
+            const avgSavingsRate = savingsRate;
+            const savingsDiff = projectedSavingsRate - avgSavingsRate;
+            
+            // Encontrar categoría con mayor gasto variable del mes
+            const variableGroups = matrix?.groups?.filter(g => {
+              const name = g.group.toLowerCase();
+              return !name.includes('hipoteca') && !name.includes('comunidad') && 
+                     !name.includes('servicios') && !name.includes('seguros') &&
+                     !name.includes('nomina') && !name.includes('ingreso');
+            }).sort((a, b) => b.expenses - a.expenses) || [];
+            const topVariableGroup = variableGroups[0];
+            
+            return (
+              <div className="flex flex-col gap-md flex-1">
+                <div className="flex items-baseline gap-xs">
+                  <ValueBlur hidden={hideValues}>
+                    <span className={`text-headline-md font-mono ${projectedSavingsRate >= 15 ? "text-positive" : projectedSavingsRate >= 0 ? "text-warning" : "text-critical"}`}>
+                      {projectedSavingsRate.toFixed(1)}%
+                    </span>
+                  </ValueBlur>
+                  <span className="text-body-sm text-on-surface-variant">ahorro proyectado</span>
+                </div>
+                
+                <div className="flex items-center gap-md text-body-sm">
+                  <span className={savingsDiff >= 0 ? "text-positive" : "text-critical"}>
+                    {savingsDiff >= 0 ? "↑" : "↓"} {Math.abs(savingsDiff).toFixed(1)}%
+                  </span>
+                  <span className="text-on-surface-variant">vs tu {avgSavingsRate.toFixed(0)}% habitual</span>
+                </div>
+                
+                <div className="h-px bg-[#2D3748]" />
+                
+                <div className="flex flex-col gap-xs text-body-sm">
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Gasto variable proyectado:</span>
+                    <ValueBlur hidden={hideValues}>
+                      <span className="text-on-surface tabular-nums">{Math.round(projectedVariable).toLocaleString("es")}€</span>
+                    </ValueBlur>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Días restantes:</span>
+                    <span className="text-on-surface">{daysRemaining} días</span>
+                  </div>
+                </div>
+                
+                {topVariableGroup && savingsDiff < 0 && (
+                  <div className="mt-auto p-sm bg-warning/5 border border-warning/20 rounded-lg">
+                    <p className="text-body-sm text-warning">
+                      💡 Modera el gasto en <strong>{stripPrefix(topVariableGroup.group)}</strong> esta semana
+                    </p>
+                  </div>
+                )}
+                
+                {savingsDiff >= 5 && (
+                  <div className="mt-auto p-sm bg-positive/5 border border-positive/20 rounded-lg">
+                    <p className="text-body-sm text-positive">
+                      🎉 ¡Vas muy bien! Superarás tu media de ahorro
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </section>
+
+        {/* Salud Financiera - Regla 50/30/20 */}
+        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+          <div className="flex items-center gap-sm">
+            <div className="w-8 h-8 rounded-full bg-positive/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-sm text-positive">monitoring</span>
+            </div>
+            <h3 className="text-label-caps text-on-surface-variant uppercase">Salud Financiera</h3>
+          </div>
+          {(() => {
+            // Usar configuración del usuario si existe, sino usar keywords automáticos
+            const userNecessities = budgetConfig.necessities || [];
+            const userDesires = budgetConfig.desires || [];
+            const hasUserConfig = userNecessities.length > 0 || userDesires.length > 0;
+            
+            // Keywords para fallback automático
+            const necessityKeywords = ['hipoteca', 'comunidad', 'servicios', 'seguros', 'transporte', 'supermercado', 'salud', 'educación', 'luz', 'agua', 'gas', 'internet', 'telefon'];
+            
+            let necessities = 0;
+            let desires = 0;
+            
+            matrix?.groups?.forEach(g => {
+              if (g.expenses <= 0) return;
+              
+              if (hasUserConfig) {
+                // Usar configuración del usuario
+                if (userNecessities.includes(g.group)) {
+                  necessities += g.expenses;
+                } else {
+                  // Todo lo demás va a deseos
+                  desires += g.expenses;
+                }
+              } else {
+                // Fallback: usar keywords automáticos
+                const name = g.group.toLowerCase();
+                if (necessityKeywords.some(k => name.includes(k))) {
+                  necessities += g.expenses;
+                } else {
+                  desires += g.expenses;
+                }
+              }
+            });
+            
+            const totalIncome = matrix?.yearly.income || 1;
+            const totalSavings = Math.max((matrix?.yearly.net || 0), 0);
+            
+            const necessitiesPct = (necessities / totalIncome) * 100;
+            const desiresPct = (desires / totalIncome) * 100;
+            const savingsPct = (totalSavings / totalIncome) * 100;
+            
+            // Calcular score (0-100)
+            const necessitiesScore = Math.max(0, 100 - Math.abs(necessitiesPct - 50) * 2);
+            const desiresScore = Math.max(0, 100 - Math.abs(desiresPct - 30) * 2);
+            const savingsScore = savingsPct >= 20 ? 100 : (savingsPct / 20) * 100;
+            const overallScore = Math.round((necessitiesScore * 0.3 + desiresScore * 0.3 + savingsScore * 0.4));
+            
+            const healthColor = overallScore >= 70 ? "#10B981" : overallScore >= 40 ? "#F59E0B" : "#EF4444";
+            const healthLabel = overallScore >= 70 ? "Excelente" : overallScore >= 40 ? "Regular" : "Mejorable";
+            
+            // Calcular capacidad de endeudamiento (gastos recurrentes / ingresos)
+            const monthlyIncome = matrix?.averages?.income || 1;
+            const fixedExpenses = matrix?.averages?.fixed || 0;
+            const debtRatio = (fixedExpenses / monthlyIncome) * 100;
+            const debtHealthy = debtRatio <= 35;
+            
+            const openCategoryModal = (type: "necessities" | "desires") => {
+              setCategoryModalType(type);
+              setTempSelectedCategories(type === "necessities" ? [...userNecessities] : [...userDesires]);
+              setShowCategoryModal(true);
+            };
+            
+            return (
+              <div className="flex flex-col gap-md flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-sm">
+                    <div className="relative w-12 h-12">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2D3748" strokeWidth="3" />
+                        <circle
+                          cx="18" cy="18" r="15.915"
+                          fill="transparent"
+                          stroke={healthColor}
+                          strokeWidth="3"
+                          strokeDasharray={`${overallScore} 100`}
+                          strokeLinecap="round"
+                          className="transition-all duration-700"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xs font-bold tabular-nums" style={{ color: healthColor }}>{overallScore}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-headline-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</p>
+                      <p className="text-body-sm text-on-surface-variant">Score 50/30/20</p>
+                    </div>
+                  </div>
+                  {savingsPct >= 20 && (
+                    <div className="px-sm py-xs bg-positive/10 rounded-full">
+                      <span className="text-positive text-body-sm font-medium">🏆 Ahorrador</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col gap-sm">
+                  {/* Necesidades */}
+                  <div className="flex flex-col gap-xs">
+                    <div className="flex justify-between text-body-sm">
+                      <button 
+                        onClick={() => openCategoryModal("necessities")}
+                        className="text-on-surface-variant hover:text-primary hover:underline cursor-pointer transition-colors flex items-center gap-xs"
+                      >
+                        Necesidades (obj: 50%)
+                        <span className="material-symbols-outlined text-xs opacity-50">edit</span>
+                      </button>
+                      <span className={necessitiesPct <= 55 ? "text-positive" : "text-warning"}>{necessitiesPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-surface-dim h-2 rounded-full overflow-hidden relative">
+                      <div className="absolute left-1/2 w-px h-full bg-on-surface-variant/30" />
+                      <div
+                        className={`h-full rounded-full transition-all ${necessitiesPct <= 55 ? "bg-positive" : "bg-warning"}`}
+                        style={{ width: `${Math.min(necessitiesPct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Deseos */}
+                  <div className="flex flex-col gap-xs">
+                    <div className="flex justify-between text-body-sm">
+                      <button 
+                        onClick={() => openCategoryModal("desires")}
+                        className="text-on-surface-variant hover:text-primary hover:underline cursor-pointer transition-colors flex items-center gap-xs"
+                      >
+                        Deseos (obj: 30%)
+                        <span className="material-symbols-outlined text-xs opacity-50">edit</span>
+                      </button>
+                      <span className={desiresPct <= 35 ? "text-positive" : "text-warning"}>{desiresPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-surface-dim h-2 rounded-full overflow-hidden relative">
+                      <div className="absolute left-[30%] w-px h-full bg-on-surface-variant/30" />
+                      <div
+                        className={`h-full rounded-full transition-all ${desiresPct <= 35 ? "bg-positive" : "bg-warning"}`}
+                        style={{ width: `${Math.min(desiresPct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Ahorro */}
+                  <div className="flex flex-col gap-xs">
+                    <div className="flex justify-between text-body-sm">
+                      <span className="text-on-surface-variant">Ahorro (obj: 20%)</span>
+                      <span className={savingsPct >= 20 ? "text-positive" : "text-critical"}>{savingsPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-surface-dim h-2 rounded-full overflow-hidden relative">
+                      <div className="absolute left-[20%] w-px h-full bg-on-surface-variant/30" />
+                      <div
+                        className={`h-full rounded-full transition-all ${savingsPct >= 20 ? "bg-positive" : "bg-critical"}`}
+                        style={{ width: `${Math.min(savingsPct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {!hasUserConfig && (
+                  <p className="text-body-sm text-on-surface-variant/60 italic">
+                    Haz clic en Necesidades o Deseos para personalizar
+                  </p>
+                )}
+                
+                <div className="h-px bg-[#2D3748]" />
+                
+                {/* Capacidad de Endeudamiento */}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-body-sm text-on-surface-variant">Capacidad de Endeudamiento</span>
+                    <span className="text-body-sm text-on-surface-variant">(Gastos fijos / Ingresos)</span>
+                  </div>
+                  <div className="flex items-center gap-sm">
+                    <span className={`text-headline-sm font-mono ${debtHealthy ? "text-positive" : "text-critical"}`}>
+                      {debtRatio.toFixed(0)}%
+                    </span>
+                    <span className={`text-body-sm ${debtHealthy ? "text-positive" : "text-critical"}`}>
+                      {debtHealthy ? "✓ OK" : "⚠ Alto"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </section>
+      </div>
+
+      {/* Row 6: Diversificación de Inversiones (solo si hay inversiones) */}
+      {investments && investments.holding_count > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+          <section className="md:col-span-12 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-sm">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-sm text-primary">pie_chart</span>
+                </div>
+                <h3 className="text-label-caps text-on-surface-variant uppercase">Diversificación y Rebalanceo</h3>
+              </div>
+              <a 
+                href="/investments" 
+                className="text-body-sm text-primary hover:underline flex items-center gap-xs"
+              >
+                Ver cartera
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+            
+            {(() => {
+              const allocation = investments.tipo_allocation || {};
+              const totalValue = investments.valor_total || 0;
+              const goals = investmentGoals?.allocations || {};
+              
+              // Si no hay objetivos configurados, usar distribución sugerida por defecto
+              const defaultGoals: Record<string, number> = {
+                'ETF': 60,
+                'Acciones': 30,
+                'Bonos': 10,
+              };
+              
+              const targetAllocation = Object.keys(goals).length > 0 ? goals : defaultGoals;
+              
+              // Calcular porcentajes actuales
+              const currentAllocation: Record<string, number> = {};
+              Object.entries(allocation).forEach(([type, value]) => {
+                currentAllocation[type] = totalValue > 0 ? (Number(value) / totalValue) * 100 : 0;
+              });
+              
+              // Determinar si necesita rebalanceo (desviación > 5%)
+              let needsRebalance = false;
+              let rebalanceMessage = "";
+              
+              Object.entries(targetAllocation).forEach(([type, target]) => {
+                const current = currentAllocation[type] || 0;
+                const diff = Math.abs(current - target);
+                if (diff > 5) {
+                  needsRebalance = true;
+                  if (current < target) {
+                    rebalanceMessage = `Considera aumentar ${type} (${current.toFixed(0)}% → ${target}%)`;
+                  } else {
+                    rebalanceMessage = `Considera reducir ${type} (${current.toFixed(0)}% → ${target}%)`;
+                  }
+                }
+              });
+              
+              const allTypes = [...new Set([...Object.keys(currentAllocation), ...Object.keys(targetAllocation)])];
+              
+              return (
+                <div className="flex flex-col md:flex-row gap-lg">
+                  {/* Gráfico de distribución */}
+                  <div className="flex-1">
+                    <div className="flex flex-col gap-sm">
+                      {allTypes.map(type => {
+                        const current = currentAllocation[type] || 0;
+                        const target = targetAllocation[type] || 0;
+                        const value = allocation[type] || 0;
+                        const diff = current - target;
+                        const isAligned = Math.abs(diff) <= 5;
+                        
+                        return (
+                          <div key={type} className="flex flex-col gap-xs">
+                            <div className="flex justify-between text-body-sm">
+                              <span className="text-on-surface">{type}</span>
+                              <div className="flex items-center gap-md">
+                                <ValueBlur hidden={hideValues}>
+                                  <span className="text-on-surface-variant tabular-nums">{Number(value).toLocaleString("es")}€</span>
+                                </ValueBlur>
+                                <span className={isAligned ? "text-positive" : "text-warning"}>
+                                  {current.toFixed(0)}%
+                                  {target > 0 && (
+                                    <span className="text-on-surface-variant"> / {target}%</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="w-full bg-surface-dim h-3 rounded-full overflow-hidden relative">
+                              {target > 0 && (
+                                <div 
+                                  className="absolute h-full w-0.5 bg-on-surface-variant/50 z-10" 
+                                  style={{ left: `${target}%` }}
+                                />
+                              )}
+                              <div
+                                className={`h-full rounded-full transition-all ${isAligned ? "bg-positive" : "bg-warning"}`}
+                                style={{ width: `${Math.min(current, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Panel de estado */}
+                  <div className="md:w-64 flex flex-col gap-md">
+                    <div className={`p-md rounded-lg border ${needsRebalance ? "bg-warning/5 border-warning/20" : "bg-positive/5 border-positive/20"}`}>
+                      <div className="flex items-center gap-sm mb-sm">
+                        <span className={`material-symbols-outlined text-lg ${needsRebalance ? "text-warning" : "text-positive"}`}>
+                          {needsRebalance ? "warning" : "check_circle"}
+                        </span>
+                        <span className={`text-body-sm font-medium ${needsRebalance ? "text-warning" : "text-positive"}`}>
+                          {needsRebalance ? "Rebalanceo sugerido" : "Cartera equilibrada"}
+                        </span>
+                      </div>
+                      {needsRebalance && (
+                        <p className="text-body-sm text-on-surface-variant">{rebalanceMessage}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col gap-xs text-body-sm">
+                      <div className="flex justify-between">
+                        <span className="text-on-surface-variant">Valor total:</span>
+                        <ValueBlur hidden={hideValues}>
+                          <span className="text-on-surface font-medium tabular-nums">{totalValue.toLocaleString("es")}€</span>
+                        </ValueBlur>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-on-surface-variant">Posiciones:</span>
+                        <span className="text-on-surface">{investments.holding_count}</span>
+                      </div>
+                    </div>
+                    
+                    {Object.keys(goals).length === 0 && (
+                      <p className="text-body-sm text-on-surface-variant italic">
+                        Configura tus objetivos en Ajustes → Inversiones
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </section>
+        </div>
+      )}
+
       {selectedCat && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -686,6 +1052,129 @@ export default function DashboardPage() {
                 {catMonthlyData ? catMonthlyData.reduce((a, b) => a + b, 0).toLocaleString("es") : ""}€
               </span>
               </ValueBlur>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de selección de categorías para 50/30/20 */}
+      {showCategoryModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowCategoryModal(false)}
+        >
+          <div
+            className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-lg">
+              <h3 className="text-label-caps text-on-surface-variant uppercase">
+                Seleccionar: {categoryModalType === "necessities" ? "Necesidades" : "Deseos"}
+              </h3>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="p-1 rounded-lg hover:bg-[#2D3748] text-on-surface-variant hover:text-on-surface transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+            
+            <p className="text-body-sm text-on-surface-variant mb-md">
+              {categoryModalType === "necessities" 
+                ? "Selecciona las categorías que consideras gastos esenciales (hipoteca, servicios, seguros, etc.)"
+                : "Selecciona las categorías que consideras gastos de ocio o no esenciales"
+              }
+            </p>
+            
+            <div className="flex-1 overflow-y-auto space-y-xs mb-lg">
+              {(() => {
+                const allGroups = matrix?.groups
+                  ?.filter(g => g.expenses > 0)
+                  .map(g => g.group)
+                  .sort() || [];
+                
+                const otherType = categoryModalType === "necessities" ? "desires" : "necessities";
+                const otherTypeCategories = otherType === "necessities" 
+                  ? budgetConfig.necessities 
+                  : budgetConfig.desires;
+                
+                return allGroups.map(group => {
+                  const isSelected = tempSelectedCategories.includes(group);
+                  const isInOtherType = otherTypeCategories.includes(group);
+                  
+                  return (
+                    <label
+                      key={group}
+                      className={`flex items-center gap-md p-sm rounded-lg cursor-pointer transition-colors ${
+                        isInOtherType 
+                          ? "opacity-40 cursor-not-allowed" 
+                          : isSelected 
+                            ? "bg-primary/10" 
+                            : "hover:bg-[#2D3748]/50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isInOtherType}
+                        onChange={() => {
+                          if (isInOtherType) return;
+                          setTempSelectedCategories(prev => 
+                            prev.includes(group) 
+                              ? prev.filter(c => c !== group)
+                              : [...prev, group]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-outline-variant bg-surface-container-high text-primary focus:ring-primary focus:ring-offset-0"
+                      />
+                      <span className={`text-body-sm flex-1 ${isInOtherType ? "line-through" : "text-on-surface"}`}>
+                        {stripPrefix(group)}
+                      </span>
+                      {isInOtherType && (
+                        <span className="text-body-sm text-on-surface-variant/60 italic">
+                          (en {otherType === "necessities" ? "Necesidades" : "Deseos"})
+                        </span>
+                      )}
+                    </label>
+                  );
+                });
+              })()}
+            </div>
+            
+            <div className="flex gap-md pt-md border-t border-[#2D3748]">
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="flex-1 px-lg py-md rounded-lg text-body-sm font-medium border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  setSavingBudgetConfig(true);
+                  try {
+                    const newConfig = {
+                      ...budgetConfig,
+                      [categoryModalType]: tempSelectedCategories,
+                    };
+                    const res = await fetch("/api/budget-categories", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(newConfig),
+                    });
+                    if (res.ok) {
+                      const saved = await res.json();
+                      setBudgetConfig(saved);
+                    }
+                  } finally {
+                    setSavingBudgetConfig(false);
+                    setShowCategoryModal(false);
+                  }
+                }}
+                disabled={savingBudgetConfig}
+                className="flex-1 px-lg py-md rounded-lg text-body-sm font-medium bg-primary text-primary-on hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {savingBudgetConfig ? "Guardando..." : "Guardar"}
+              </button>
             </div>
           </div>
         </div>
