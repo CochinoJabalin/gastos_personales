@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           amount: finalAmount,
           bank_id: bank.id,
           group,
-          type,
+          type: type.charAt(0).toUpperCase() + type.slice(1).toLowerCase(),
           timestamp: row.date,
           comentarios: row.comments,
         },
