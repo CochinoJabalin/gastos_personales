@@ -73,6 +73,7 @@ export default function BackupSettingsPage() {
   const [runningManual, setRunningManual] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
+  const [restoringFromFile, setRestoringFromFile] = useState(false);
 
   const subNavItems = [
     { href: "/settings", label: "General", icon: "settings" },
@@ -219,6 +220,42 @@ export default function BackupSettingsPage() {
     }
   }
 
+  async function handleRestoreFromFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".zip")) {
+      setRestoreResult({ success: false, error: "El archivo debe ser un .zip" });
+      return;
+    }
+
+    if (!confirm("¿Restaurar desde este archivo? Los datos existentes no se sobrescribirán.")) {
+      event.target.value = "";
+      return;
+    }
+
+    setRestoringFromFile(true);
+    setRestoreResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/backup/restore", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await res.json();
+      setRestoreResult(result);
+    } catch {
+      setRestoreResult({ success: false, error: "Error de conexión" });
+    } finally {
+      setRestoringFromFile(false);
+      event.target.value = "";
+      fetchData();
+    }
+  }
+
   function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -305,6 +342,27 @@ export default function BackupSettingsPage() {
           <span className="material-symbols-outlined text-lg">backup</span>
           {runningManual ? "Generando..." : "Ejecutar Backup Completo"}
         </button>
+      </section>
+
+      {/* Restore from File */}
+      <section className="bg-surface-container border border-outline-variant rounded-xl p-lg">
+        <h2 className="text-label-caps text-on-surface-variant uppercase mb-md">Restaurar desde Archivo</h2>
+        <p className="text-body-sm text-on-surface-variant mb-md">
+          Sube un archivo de backup (.zip) para restaurar los datos. Los registros existentes no se sobrescribirán.
+        </p>
+        <label
+          className={`flex items-center gap-2 px-lg py-md bg-positive text-white rounded-lg text-body-sm hover:bg-positive/80 cursor-pointer inline-flex ${restoringFromFile ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          <span className="material-symbols-outlined text-lg">restore</span>
+          {restoringFromFile ? "Restaurando..." : "Seleccionar Archivo ZIP"}
+          <input
+            type="file"
+            accept=".zip"
+            onChange={handleRestoreFromFile}
+            disabled={restoringFromFile}
+            className="hidden"
+          />
+        </label>
       </section>
 
       {/* Restore Result Modal */}

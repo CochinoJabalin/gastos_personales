@@ -14,6 +14,13 @@ function extractJsonFromZip(filepath: string): Record<string, unknown> {
   return JSON.parse(entry.getData().toString("utf-8"));
 }
 
+function extractJsonFromBuffer(buffer: Buffer): Record<string, unknown> {
+  const zip = new AdmZip(buffer);
+  const entry = zip.getEntry("backup.json");
+  if (!entry) throw new Error("backup.json not found in archive");
+  return JSON.parse(entry.getData().toString("utf-8"));
+}
+
 async function restoreEntities<T extends { id: string }>(
   model: { create: (args: any) => Promise<unknown>; findUnique: (args: any) => Promise<unknown> },
   entities: T[] | undefined,
@@ -43,12 +50,7 @@ async function restoreEntities<T extends { id: string }>(
   }
 }
 
-export async function restoreFromBackup(filepath: string): Promise<RestoreSummary> {
-  if (!existsSync(filepath)) {
-    throw new Error(`Archivo de backup no encontrado: ${filepath}`);
-  }
-
-  const data = extractJsonFromZip(filepath);
+async function restoreData(data: Record<string, unknown>): Promise<RestoreSummary> {
   const summary: RestoreSummary = { restored: {}, skipped: {} };
 
   // Restore order respects foreign key dependencies
@@ -157,4 +159,18 @@ export async function restoreFromBackup(filepath: string): Promise<RestoreSummar
   );
 
   return summary;
+}
+
+export async function restoreFromBackup(filepath: string): Promise<RestoreSummary> {
+  if (!existsSync(filepath)) {
+    throw new Error(`Archivo de backup no encontrado: ${filepath}`);
+  }
+
+  const data = extractJsonFromZip(filepath);
+  return restoreData(data);
+}
+
+export async function restoreFromBuffer(buffer: Buffer): Promise<RestoreSummary> {
+  const data = extractJsonFromBuffer(buffer);
+  return restoreData(data);
 }
