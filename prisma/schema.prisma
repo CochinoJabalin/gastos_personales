@@ -34,6 +34,8 @@ model Account {
   transactions      Transaction[]
   crowdlending_investments CrowdlendingInvestment[]
   holdings          InvestmentHolding[]
+  transfersFrom     Transfer[]     @relation("TransfersFrom")
+  transfersTo       Transfer[]     @relation("TransfersTo")
 }
 
 model Originator {
@@ -93,6 +95,31 @@ model Transaction {
   comentarios               String?
   investment_transaction_id String?
   crowdlending_investment_id String?
+  transfer_id               String?
+}
+
+model Transfer {
+  id              String    @id @default(uuid())
+
+  from_account_id String
+  from_account    Account   @relation("TransfersFrom", fields: [from_account_id], references: [id])
+  to_account_id   String
+  to_account      Account   @relation("TransfersTo", fields: [to_account_id], references: [id])
+
+  amount          Float
+  concept         String
+  timestamp       DateTime  @default(now())
+  status          String    @default("pending") // pending | completed | cancelled
+
+  is_scheduled    Boolean   @default(false)
+  frequency       String?   // mensual | anual
+  next_run        DateTime?
+  end_date        DateTime?
+  last_run        DateTime?
+  enabled         Boolean   @default(true)
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 }
 
 model InvestmentInstrument {

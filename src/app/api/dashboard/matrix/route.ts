@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 function calcMonthData(
   allTransactions: Array<{
     timestamp: Date; amount: number; is_recurring: boolean | null;
@@ -10,16 +12,18 @@ function calcMonthData(
   }>
 ) {
 
+  const filtered = allTransactions.filter((t) => t.group !== "Transferencia");
+
   const months = Array.from({ length: 12 }, (_, i) => {
-    const income = allTransactions
+    const income = filtered
       .filter((t) => t.timestamp.getMonth() === i && Number(t.amount) > 0)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const expenses = allTransactions
+    const expenses = filtered
       .filter((t) => t.timestamp.getMonth() === i && Number(t.amount) < 0)
       .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
 
-    const fixed = allTransactions
+    const fixed = filtered
       .filter(
         (t) =>
           t.timestamp.getMonth() === i &&
@@ -35,7 +39,7 @@ function calcMonthData(
         return sum + Math.abs(Number(t.amount));
       }, 0);
 
-    const variable = allTransactions
+    const variable = filtered
       .filter(
         (t) =>
           t.timestamp.getMonth() === i &&
@@ -59,7 +63,7 @@ function calcMonthData(
   const yearlyIncome = months.reduce((sum, m) => sum + m.income, 0);
   const yearlyExpenses = months.reduce((sum, m) => sum + m.expenses, 0);
 
-  const yearlyFixed = allTransactions
+  const yearlyFixed = filtered
     .filter((t) => Number(t.amount) < 0)
     .reduce((sum, t) => {
       const base = Math.abs(Number(t.amount));
@@ -69,7 +73,7 @@ function calcMonthData(
       return t.type === "Fijo" ? sum + base : sum;
     }, 0);
 
-  const yearlyVariable = allTransactions
+  const yearlyVariable = filtered
     .filter((t) => Number(t.amount) < 0)
     .reduce((sum, t) => {
       const base = Math.abs(Number(t.amount));
@@ -125,21 +129,24 @@ export async function GET(request: NextRequest) {
   ]);
   const minYear = firstTx ? firstTx.timestamp.getFullYear() : year;
 
-  const current = calcMonthData(currentTxs as any);
-  const prev = calcMonthData(prevTxs as any);
+  const filteredCurrent = (currentTxs as any[]).filter((t) => t.group !== "Transferencia");
+  const filteredPrev = (prevTxs as any[]).filter((t) => t.group !== "Transferencia");
+
+  const current = calcMonthData(filteredCurrent);
+  const prev = calcMonthData(filteredPrev);
 
   const groups = await getGroupBreakdown(
-    currentTxs.map((t) => ({ group: t.group, amount: Number(t.amount) }))
+    filteredCurrent.map((t) => ({ group: t.group, amount: Number(t.amount) }))
   );
 
-  const groupsMonthly = getGroupsMonthly(currentTxs.map((t) => ({
+  const groupsMonthly = getGroupsMonthly(filteredCurrent.map((t) => ({
     timestamp: t.timestamp,
     group: t.group,
     amount: Number(t.amount),
     type: t.type,
   })));
 
-  const prevGroupsMonthly = getGroupsMonthly(prevTxs.map((t) => ({
+  const prevGroupsMonthly = getGroupsMonthly(filteredPrev.map((t) => ({
     timestamp: t.timestamp,
     group: t.group,
     amount: Number(t.amount),
@@ -174,27 +181,32 @@ function getMonthLabel(month: number): string {
 function getGroupsMonthly(
   transactions: Array<{ timestamp: Date; group: string; amount: number; type: string }>
 ) {
-  const map = new Map<string, { type: string; months: number[] }>();
+  const map = new Map<string, { months: number[] }>();
 
   for (const t of transactions) {
     const amount = Number(t.amount);
     if (amount >= 0) continue;
     const month = t.timestamp.getMonth();
-    const key = t.group;
+    const key = `${t.group}|||${t.type}`;
     if (!map.has(key)) {
       const months = Array.from({ length: 12 }, () => 0);
-      map.set(key, { type: t.type, months });
+      map.set(key, { months });
     }
     map.get(key)!.months[month] += Math.abs(amount);
   }
 
   return Array.from(map.entries())
-    .map(([group, { type, months }]) => ({
-      group,
-      type,
-      months: months.map(m => Math.round(m * 100) / 100),
-      total: Math.round(months.reduce((a, b) => a + b, 0) * 100) / 100,
-    }))
+    .map(([key, { months }]) => {
+      const sep = key.lastIndexOf("|||");
+      const group = key.slice(0, sep);
+      const type = key.slice(sep + 3);
+      return {
+        group,
+        type,
+        months: months.map(m => Math.round(m * 100) / 100),
+        total: Math.round(months.reduce((a, b) => a + b, 0) * 100) / 100,
+      };
+    })
     .sort((a, b) => b.total - a.total);
 }
 

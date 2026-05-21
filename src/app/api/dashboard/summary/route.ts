@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
   let currentMonthExpenses = 0;
 
   for (const t of allTransactions) {
+    if (t.group === "Transferencia") continue;
     const amount = Number(t.amount);
     if (amount > 0) {
       totalIncome += amount;
