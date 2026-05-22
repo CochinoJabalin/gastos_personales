@@ -2,6 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
+/* react-grid-layout styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  z-index: 1;
+  will-change: width, height;
+  opacity: 0.9;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+  opacity: 0.9;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  display: none;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(173, 198, 255, 0.5);
+  border-bottom: 2px solid rgba(173, 198, 255, 0.5);
+}
+
+/* Edit mode specifics */
+.edit-mode .react-grid-item > .react-resizable-handle {
+  display: block;
+}
+
+.edit-mode .react-grid-placeholder {
+  background: rgba(173, 198, 255, 0.15);
+  border: 2px dashed rgba(173, 198, 255, 0.4);
+  border-radius: 12px;
+  opacity: 1;
+  transition: all 100ms ease;
+}
+
+/* Grid widget styles */
+.grid-widget {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.grid-widget-edit {
+  border: 1px dashed rgba(173, 198, 255, 0.25);
+  border-radius: 12px;
+  background: rgba(26, 34, 47, 0.5);
+}
+
+.grid-widget-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-widget-content > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.grid-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  cursor: grab;
+  color: rgba(173, 198, 255, 0.5);
+  transition: color 150ms;
+}
+
+.grid-drag-handle:hover {
+  color: rgba(173, 198, 255, 0.9);
+}
+
+.grid-drag-handle:active {
+  cursor: grabbing;
+}
+
 @font-face {
   font-family: "Geist";
   src: url("https://fonts.cdnfonts.com/s/6c4b3b3a-4e5c-4f5a-8b4c-8b3a4c5b6c7a/Geist/Geist-Regular.woff2")

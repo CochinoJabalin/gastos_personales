@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import DonutChart from "@/components/DonutChart";
 import BarChart from "@/components/BarChart";
 import ValueBlur from "@/components/ValueBlur";
 import { t } from "@/lib/i18n";
 import { useView } from "@/lib/ViewContext";
+import { fmtEs } from "@/lib/format";
+
+const DashboardGrid = dynamic(() => import("@/components/DashboardGrid"), { ssr: false });
 
 const stripPrefix = (s: string) => s.replace(/^gastos\s+/i, "");
 
@@ -96,6 +100,7 @@ export default function DashboardPage() {
   const { hideValues, setHideValues } = useView();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     fetch("/api/transactions/years")
@@ -267,6 +272,19 @@ export default function DashboardPage() {
   return (
     <div className={`flex flex-col gap-6 ${hideValues ? "hide-cifras" : ""}`}>
       <div className="flex items-center justify-end gap-sm">
+        <button
+          onClick={() => setEditMode(!editMode)}
+          className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
+            editMode
+              ? "bg-primary text-primary-on"
+              : "bg-surface-dim text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">
+            {editMode ? "check" : "tune"}
+          </span>
+          {editMode ? "Listo" : "Editar layout"}
+        </button>
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -291,10 +309,26 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Row 1: Balance Total + Tasa de Ahorro + Resumen Anual */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+      {/* Dashboard Grid */}
+      <DashboardGrid
+        editMode={editMode}
+        widgetKeys={[
+          "balance",
+          "savings-rate",
+          "annual-summary",
+          "top-categories",
+          "spend-velocity",
+          "donut-chart",
+          "bar-chart",
+          "fixed-expense",
+          "variable-expense",
+          "projection",
+          "financial-health",
+          ...(investments && investments.holding_count > 0 ? ["investments"] : []),
+        ]}
+      >
         {/* Balance Total */}
-        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-0 h-full flex flex-col justify-between">
           <div className="flex flex-col gap-sm">
             <div className="flex items-center gap-sm">
               <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
@@ -303,7 +337,7 @@ export default function DashboardPage() {
               <p className="text-label-caps text-[9px] text-on-surface-variant uppercase">Balance Total</p>
             </div>
             <p className={`text-headline-md font-mono ${totalBankBalance >= 0 ? "text-positive" : "text-critical"}`}>
-              <ValueBlur hidden={hideValues}>{totalBankBalance.toLocaleString("es")}€</ValueBlur>
+              <ValueBlur hidden={hideValues}>{fmtEs(totalBankBalance)}€</ValueBlur>
             </p>
           </div>
           <div className="flex items-center justify-between">
@@ -315,7 +349,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Tasa de Ahorro */}
-        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-0 h-full flex flex-col justify-between">
           <div className="flex flex-col gap-sm">
             <div className="flex items-center gap-sm">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${savingsPositive ? "bg-positive/10" : "bg-critical/10"}`}>
@@ -334,14 +368,14 @@ export default function DashboardPage() {
             </div>
             <ValueBlur hidden={hideValues}>
             <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums val-euro">
-              Neto: {summary ? `${(summary?.net_savings || 0).toLocaleString("es")}€` : ""}
+              Neto: {summary ? `${fmtEs(summary?.net_savings || 0)}€` : ""}
             </span>
             </ValueBlur>
           </div>
         </section>
 
         {/* Resumen Anual */}
-        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-[180px] flex flex-col justify-between">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg min-h-0 h-full flex flex-col justify-between">
           <div className="flex flex-col gap-sm">
             <div className="flex items-center gap-sm">
               <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
@@ -352,7 +386,7 @@ export default function DashboardPage() {
             <div className="flex items-baseline gap-xs">
               <ValueBlur hidden={hideValues}>
               <span className={`text-headline-sm font-mono val-euro ${(matrix?.yearly.net || 0) >= 0 ? "text-positive" : "text-critical"}`}>
-                {(matrix?.yearly.net || 0).toLocaleString("es")}€
+                {fmtEs(matrix?.yearly.net || 0)}€
               </span>
               </ValueBlur>
               <span className="text-label-caps text-[9px] text-on-surface-variant">neto</span>
@@ -365,20 +399,18 @@ export default function DashboardPage() {
                 style={{ width: `${yearProgress}%` }}
               />
             </div>
-            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% del año</span>            <div className="flex gap-md text-[9px] mt-1">
-              <span className="text-on-surface-variant">Ingresos: <ValueBlur hidden={hideValues}><span className="text-positive tabular-nums val-euro">{(matrix?.yearly.income || 0).toLocaleString("es")}€</span></ValueBlur></span>
+            <span className="text-label-caps text-[9px] text-on-surface-variant tabular-nums">{yearProgress}% del año</span>
+            <div className="flex gap-md text-[9px] mt-1">
+              <span className="text-on-surface-variant">Ingresos: <ValueBlur hidden={hideValues}><span className="text-positive tabular-nums val-euro">{fmtEs(matrix?.yearly.income || 0)}€</span></ValueBlur></span>
             </div>
             <div className="flex gap-md text-[9px]">
-              <span className="text-on-surface-variant">Gastos: <ValueBlur hidden={hideValues}><span className="text-critical tabular-nums val-euro">{(matrix?.yearly.expenses || 0).toLocaleString("es")}€</span></ValueBlur></span>
+              <span className="text-on-surface-variant">Gastos: <ValueBlur hidden={hideValues}><span className="text-critical tabular-nums val-euro">{fmtEs(matrix?.yearly.expenses || 0)}€</span></ValueBlur></span>
             </div>
           </div>
         </section>
-      </div>
 
-      {/* Row 2: Top categorías + velocidad de gasto */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
         {/* Top Categorías */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <h3 className="text-label-caps text-on-surface-variant uppercase">
             {t("dashboard.top_categories")}
           </h3>
@@ -408,7 +440,7 @@ export default function DashboardPage() {
                     </div>
                     <ValueBlur hidden={hideValues}>
                     <span className="text-data-mono text-on-surface w-20 text-right tabular-nums val-euro">
-                      {cat.expenses.toLocaleString("es")}€
+                      {fmtEs(cat.expenses)}€
                     </span>
                     </ValueBlur>
                     <span className="text-body-sm text-on-surface-variant w-10 text-right">
@@ -421,8 +453,8 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Velocidad de gasto + Ingreso medio diario */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        {/* Velocidad de gasto */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <h3 className="text-label-caps text-on-surface-variant uppercase">
             Velocidad de Gasto
           </h3>
@@ -431,7 +463,7 @@ export default function DashboardPage() {
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Gasto medio / día</span>
               <ValueBlur hidden={hideValues}>
               <span className="text-display-lg text-on-surface tabular-nums val-euro block">
-                {currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.expenses / new Date().getDate()).toLocaleString("es") : 0}€
+                {currMonthData && monthsSoFar > 0 ? fmtEs(Math.round(currMonthData.expenses / new Date().getDate())) : 0}€
               </span>
               </ValueBlur>
             </div>
@@ -440,7 +472,7 @@ export default function DashboardPage() {
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Ingreso medio / día</span>
               <ValueBlur hidden={hideValues}>
               <span className="text-display-lg text-on-surface tabular-nums val-euro block">
-                {currMonthData && monthsSoFar > 0 ? Math.round(currMonthData.income / new Date().getDate()).toLocaleString("es") : 0}€
+                {currMonthData && monthsSoFar > 0 ? fmtEs(Math.round(currMonthData.income / new Date().getDate())) : 0}€
               </span>
               </ValueBlur>
             </div>
@@ -449,17 +481,15 @@ export default function DashboardPage() {
               <span className="text-label-caps text-[9px] text-on-surface-variant uppercase">Proyección anual gasto</span>
               <ValueBlur hidden={hideValues}>
               <span className="text-display-lg text-on-surface tabular-nums val-euro block">
-                {currMonthData && monthsSoFar > 0 ? Math.round(avgMonthlyExpense * 12).toLocaleString("es") : 0}€
+                {currMonthData && monthsSoFar > 0 ? fmtEs(Math.round(avgMonthlyExpense * 12)) : 0}€
               </span>
               </ValueBlur>
             </div>
           </div>
         </section>
-      </div>
 
-      {/* Row 3: Donut + BarChart */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <section className="md:col-span-4 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col items-center justify-center space-y-md">
+        {/* Donut Chart */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col items-center justify-center space-y-md overflow-hidden">
           <h2 className="text-label-caps text-on-surface-variant w-full uppercase">
             {t("dashboard.total_assets")}
           </h2>
@@ -473,11 +503,12 @@ export default function DashboardPage() {
           />
         </section>
 
-        <section className="md:col-span-8 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col">
+        {/* Bar Chart */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col overflow-hidden">
           <BarChart
             data={barData}
             trendLabel={t("dashboard.monthly_evolution")}
-            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: ${(currMonthData?.expenses || 0).toLocaleString("es")}€`}
+            trendValue={savingsPositive ? `${savingsRate.toFixed(1)}% ahorro` : `Gasto: ${fmtEs(currMonthData?.expenses || 0)}€`}
             trendPositive={savingsPositive}
             overlayLine={{
               values: netLine,
@@ -502,12 +533,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-      </div>
 
-      {/* Row 4: Fixed/Variable */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
         {/* Gasto Fijo */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-label-caps text-on-surface-variant uppercase">
@@ -515,7 +543,7 @@ export default function DashboardPage() {
               </span>
               <ValueBlur hidden={hideValues}>
               <span className="text-display-lg text-on-surface tabular-nums val-euro">
-                {(currMonthData?.fixed || 0).toLocaleString("es")}€
+                {fmtEs(currMonthData?.fixed || 0)}€
               </span>
               </ValueBlur>
             </div>
@@ -540,7 +568,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Gasto Variable */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-label-caps text-on-surface-variant uppercase">
@@ -548,7 +576,7 @@ export default function DashboardPage() {
               </span>
               <ValueBlur hidden={hideValues}>
               <span className="text-display-lg text-on-surface tabular-nums val-euro">
-                {(currMonthData?.variable || 0).toLocaleString("es")}€
+                {fmtEs(currMonthData?.variable || 0)}€
               </span>
               </ValueBlur>
             </div>
@@ -560,7 +588,7 @@ export default function DashboardPage() {
             <div className="text-body-sm tabular-nums val-euro">
               <ValueBlur hidden={hideValues}>
               <span className={variableDelta <= 0 ? "text-positive" : "text-critical"}>
-                {variableDelta > 0 ? "↑" : "↓"} {Math.abs(variableDelta).toLocaleString("es")}€
+                {variableDelta > 0 ? "↑" : "↓"} {fmtEs(Math.abs(variableDelta))}€
               </span>
               </ValueBlur>
               <span className="text-on-surface-variant"> vs mes anterior</span>
@@ -576,12 +604,9 @@ export default function DashboardPage() {
             {variablePct.toFixed(0)}% del promedio mensual
           </span>
         </section>
-      </div>
 
-      {/* Row 5: Proyección Fin de Mes + Salud Financiera (50/30/20) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
         {/* Proyección Fin de Mes */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <div className="flex items-center gap-sm">
             <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
               <span className="material-symbols-outlined text-sm text-warning">schedule</span>
@@ -607,7 +632,6 @@ export default function DashboardPage() {
             const avgSavingsRate = savingsRate;
             const savingsDiff = projectedSavingsRate - avgSavingsRate;
             
-            // Encontrar categoría con mayor gasto variable del mes
             const variableGroups = matrix?.groups?.filter(g => {
               const name = g.group.toLowerCase();
               return !name.includes('hipoteca') && !name.includes('comunidad') && 
@@ -640,7 +664,7 @@ export default function DashboardPage() {
                   <div className="flex justify-between">
                     <span className="text-on-surface-variant">Gasto variable proyectado:</span>
                     <ValueBlur hidden={hideValues}>
-                      <span className="text-on-surface tabular-nums">{Math.round(projectedVariable).toLocaleString("es")}€</span>
+                      <span className="text-on-surface tabular-nums">{fmtEs(Math.round(projectedVariable))}€</span>
                     </ValueBlur>
                   </div>
                   <div className="flex justify-between">
@@ -669,8 +693,8 @@ export default function DashboardPage() {
           })()}
         </section>
 
-        {/* Salud Financiera - Regla 50/30/20 */}
-        <section className="md:col-span-6 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        {/* Salud Financiera */}
+        <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
           <div className="flex items-center gap-sm">
             <div className="w-8 h-8 rounded-full bg-positive/10 flex items-center justify-center">
               <span className="material-symbols-outlined text-sm text-positive">monitoring</span>
@@ -678,12 +702,10 @@ export default function DashboardPage() {
             <h3 className="text-label-caps text-on-surface-variant uppercase">Salud Financiera</h3>
           </div>
           {(() => {
-            // Usar configuración del usuario si existe, sino usar keywords automáticos
             const userNecessities = budgetConfig.necessities || [];
             const userDesires = budgetConfig.desires || [];
             const hasUserConfig = userNecessities.length > 0 || userDesires.length > 0;
             
-            // Keywords para fallback automático
             const necessityKeywords = ['hipoteca', 'comunidad', 'servicios', 'seguros', 'transporte', 'supermercado', 'salud', 'educación', 'luz', 'agua', 'gas', 'internet', 'telefon'];
             
             let necessities = 0;
@@ -693,15 +715,12 @@ export default function DashboardPage() {
               if (g.expenses <= 0) return;
               
               if (hasUserConfig) {
-                // Usar configuración del usuario
                 if (userNecessities.includes(g.group)) {
                   necessities += g.expenses;
                 } else {
-                  // Todo lo demás va a deseos
                   desires += g.expenses;
                 }
               } else {
-                // Fallback: usar keywords automáticos
                 const name = g.group.toLowerCase();
                 if (necessityKeywords.some(k => name.includes(k))) {
                   necessities += g.expenses;
@@ -718,7 +737,6 @@ export default function DashboardPage() {
             const desiresPct = (desires / totalIncome) * 100;
             const savingsPct = (totalSavings / totalIncome) * 100;
             
-            // Calcular score (0-100)
             const necessitiesScore = Math.max(0, 100 - Math.abs(necessitiesPct - 50) * 2);
             const desiresScore = Math.max(0, 100 - Math.abs(desiresPct - 30) * 2);
             const savingsScore = savingsPct >= 20 ? 100 : (savingsPct / 20) * 100;
@@ -727,10 +745,9 @@ export default function DashboardPage() {
             const healthColor = overallScore >= 70 ? "#10B981" : overallScore >= 40 ? "#F59E0B" : "#EF4444";
             const healthLabel = overallScore >= 70 ? "Excelente" : overallScore >= 40 ? "Regular" : "Mejorable";
             
-            // Calcular capacidad de endeudamiento (gastos recurrentes / ingresos)
             const monthlyIncome = matrix?.averages?.income || 1;
-            const fixedExpenses = matrix?.averages?.fixed || 0;
-            const debtRatio = (fixedExpenses / monthlyIncome) * 100;
+            const fixedExpensesVal = matrix?.averages?.fixed || 0;
+            const debtRatio = (fixedExpensesVal / monthlyIncome) * 100;
             const debtHealthy = debtRatio <= 35;
             
             const openCategoryModal = (type: "necessities" | "desires") => {
@@ -773,7 +790,6 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="flex flex-col gap-sm">
-                  {/* Necesidades */}
                   <div className="flex flex-col gap-xs">
                     <div className="flex justify-between text-body-sm">
                       <button 
@@ -794,7 +810,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   
-                  {/* Deseos */}
                   <div className="flex flex-col gap-xs">
                     <div className="flex justify-between text-body-sm">
                       <button 
@@ -815,7 +830,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   
-                  {/* Ahorro */}
                   <div className="flex flex-col gap-xs">
                     <div className="flex justify-between text-body-sm">
                       <span className="text-on-surface-variant">Ahorro (obj: 20%)</span>
@@ -839,7 +853,6 @@ export default function DashboardPage() {
                 
                 <div className="h-px bg-[#2D3748]" />
                 
-                {/* Capacidad de Endeudamiento */}
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-body-sm text-on-surface-variant">Capacidad de Endeudamiento</span>
@@ -858,12 +871,10 @@ export default function DashboardPage() {
             );
           })()}
         </section>
-      </div>
 
-      {/* Row 6: Diversificación de Inversiones (solo si hay inversiones) */}
-      {investments && investments.holding_count > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-          <section className="md:col-span-12 bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg flex flex-col space-y-md">
+        {/* Inversiones (condicional) */}
+        {investments && investments.holding_count > 0 && (
+          <section className="bg-[#1A222F] border border-[#2D3748] rounded-xl p-lg h-full flex flex-col space-y-md overflow-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-sm">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -885,7 +896,6 @@ export default function DashboardPage() {
               const totalValue = investments.valor_total || 0;
               const goals = investmentGoals?.allocations || {};
               
-              // Si no hay objetivos configurados, usar distribución sugerida por defecto
               const defaultGoals: Record<string, number> = {
                 'ETF': 60,
                 'Acciones': 30,
@@ -894,13 +904,11 @@ export default function DashboardPage() {
               
               const targetAllocation = Object.keys(goals).length > 0 ? goals : defaultGoals;
               
-              // Calcular porcentajes actuales
               const currentAllocation: Record<string, number> = {};
               Object.entries(allocation).forEach(([type, value]) => {
                 currentAllocation[type] = totalValue > 0 ? (Number(value) / totalValue) * 100 : 0;
               });
               
-              // Determinar si necesita rebalanceo (desviación > 5%)
               let needsRebalance = false;
               let rebalanceMessage = "";
               
@@ -921,7 +929,6 @@ export default function DashboardPage() {
               
               return (
                 <div className="flex flex-col md:flex-row gap-lg">
-                  {/* Gráfico de distribución */}
                   <div className="flex-1">
                     <div className="flex flex-col gap-sm">
                       {allTypes.map(type => {
@@ -937,7 +944,7 @@ export default function DashboardPage() {
                               <span className="text-on-surface">{type}</span>
                               <div className="flex items-center gap-md">
                                 <ValueBlur hidden={hideValues}>
-                                  <span className="text-on-surface-variant tabular-nums">{Number(value).toLocaleString("es")}€</span>
+                                  <span className="text-on-surface-variant tabular-nums">{fmtEs(Number(value))}€</span>
                                 </ValueBlur>
                                 <span className={isAligned ? "text-positive" : "text-warning"}>
                                   {current.toFixed(0)}%
@@ -965,7 +972,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   
-                  {/* Panel de estado */}
                   <div className="md:w-64 flex flex-col gap-md">
                     <div className={`p-md rounded-lg border ${needsRebalance ? "bg-warning/5 border-warning/20" : "bg-positive/5 border-positive/20"}`}>
                       <div className="flex items-center gap-sm mb-sm">
@@ -985,7 +991,7 @@ export default function DashboardPage() {
                       <div className="flex justify-between">
                         <span className="text-on-surface-variant">Valor total:</span>
                         <ValueBlur hidden={hideValues}>
-                          <span className="text-on-surface font-medium tabular-nums">{totalValue.toLocaleString("es")}€</span>
+                          <span className="text-on-surface font-medium tabular-nums">{fmtEs(totalValue)}€</span>
                         </ValueBlur>
                       </div>
                       <div className="flex justify-between">
@@ -1004,8 +1010,8 @@ export default function DashboardPage() {
               );
             })()}
           </section>
-        </div>
-      )}
+        )}
+      </DashboardGrid>
 
       {selectedCat && (
         <div
@@ -1049,7 +1055,7 @@ export default function DashboardPage() {
               <span className="text-body-sm text-on-surface-variant">Total 12 meses</span>
               <ValueBlur hidden={hideValues}>
               <span className="text-data-mono text-on-surface tabular-nums">
-                {catMonthlyData ? catMonthlyData.reduce((a, b) => a + b, 0).toLocaleString("es") : ""}€
+                {catMonthlyData ? fmtEs(catMonthlyData.reduce((a, b) => a + b, 0)) : ""}€
               </span>
               </ValueBlur>
             </div>
