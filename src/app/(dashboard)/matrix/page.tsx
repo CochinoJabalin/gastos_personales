@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import StatCard from "@/components/StatCard";
 import ConditionalChip from "@/components/ConditionalChip";
-import { formatSpanish } from "@/lib/format";
+import { formatSpanish, fmtEs } from "@/lib/format";
 import { useView } from "@/lib/ViewContext";
 
 interface MatrixMonth {
@@ -230,14 +230,14 @@ export default function MatrixPage() {
       <section className="grid grid-cols-1 md:grid-cols-4 gap-gutter">
         <StatCard
           label="Ahorro Neto"
-          value={`${totalRow.net.toLocaleString("es")}€`}
+          value={`${fmtEs(totalRow.net)}€`}
           trend="+12.4% vs periodo anterior"
           positive
           valueClassName="val-euro"
         />
         <StatCard
           label="Tasa de Gasto"
-          value={`${totalRow.expenses.toLocaleString("es")}€`}
+          value={`${fmtEs(totalRow.expenses)}€`}
           trend="Alerta Crítica"
           critical
           valueClassName="val-euro"
@@ -290,17 +290,17 @@ export default function MatrixPage() {
                       }`}
                       onClick={() => m.income > 0 && openIncomeDetail(m.month - 1, m.income)}
                     >
-                      {m.income.toLocaleString("es")}€
+                      {fmtEs(m.income)}€
                     </td>
                   ))}
                   <td className="p-sm font-bold text-white tabular-nums val-euro">
-                    {totalRow.income.toLocaleString("es")}€
+                    {fmtEs(totalRow.income)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro">
-                    {avgRow.income.toLocaleString("es")}€
+                    {fmtEs(avgRow.income)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
-                    {prevAverages ? prevAverages.income.toLocaleString("es") + "€" : "-"}
+                    {prevAverages ? fmtEs(prevAverages.income) + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
@@ -316,18 +316,18 @@ export default function MatrixPage() {
                           isAlert ? "text-tertiary font-bold" : ""
                         }`}
                       >
-                        {m.fixed.toLocaleString("es")}€
+                        {fmtEs(m.fixed)}€
                       </td>
                     );
                   })}
                   <td className="p-sm font-bold text-white tabular-nums val-euro">
-                    {totalRow.fixed.toLocaleString("es")}€
+                    {fmtEs(totalRow.fixed)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro">
-                    {avgRow.fixed.toLocaleString("es")}€
+                    {fmtEs(avgRow.fixed)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
-                    {prevAverages ? prevAverages.fixed.toLocaleString("es") + "€" : "-"}
+                    {prevAverages ? fmtEs(prevAverages.fixed) + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant hover:bg-surface-container-high transition-colors">
@@ -343,18 +343,18 @@ export default function MatrixPage() {
                           isHigh ? "text-tertiary font-bold" : ""
                         }`}
                       >
-                        {m.variable.toLocaleString("es")}€
+                        {fmtEs(m.variable)}€
                       </td>
                     );
                   })}
                   <td className="p-sm font-bold text-white tabular-nums val-euro">
-                    {totalRow.variable.toLocaleString("es")}€
+                    {fmtEs(totalRow.variable)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro">
-                    {avgRow.variable.toLocaleString("es")}€
+                    {fmtEs(avgRow.variable)}€
                   </td>
                   <td className="p-sm font-bold tabular-nums val-euro bg-surface-container-highest">
-                    {prevAverages ? prevAverages.variable.toLocaleString("es") + "€" : "-"}
+                    {prevAverages ? fmtEs(prevAverages.variable) + "€" : "-"}
                   </td>
                 </tr>
                 <tr className="border-b border-outline-variant bg-surface-container-low font-bold">
@@ -368,17 +368,17 @@ export default function MatrixPage() {
                         m.net >= 0 ? "text-primary" : "text-tertiary"
                       }`}
                     >
-                      {m.net.toLocaleString("es")}€
+                      {fmtEs(m.net)}€
                     </td>
                   ))}
                   <td className="p-sm font-extrabold text-white tabular-nums val-euro">
-                    {totalRow.net.toLocaleString("es")}€
+                    {fmtEs(totalRow.net)}€
                   </td>
                   <td className="p-sm font-extrabold tabular-nums val-euro">
-                    {avgRow.net.toLocaleString("es")}€
+                    {fmtEs(avgRow.net)}€
                   </td>
                   <td className="p-sm font-extrabold tabular-nums val-euro bg-surface-container-highest">
-                    {prevAverages ? prevAverages.net.toLocaleString("es") + "€" : "-"}
+                    {prevAverages ? fmtEs(prevAverages.net) + "€" : "-"}
                   </td>
                 </tr>
               </tbody>
@@ -494,18 +494,18 @@ export default function MatrixPage() {
                         }`}
                         onClick={() => m > 0 && openDetail(g.group, i, m)}
                       >
-                        <span className="val-euro">{m > 0 ? `${m.toLocaleString("es")}€` : "—"}</span>
+                        <span className="val-euro">{m > 0 ? `${fmtEs(m)}€` : "—"}</span>
                       </td>
                     ))}
                     <td className="p-sm font-bold text-white tabular-nums val-euro">
-                      {g.total.toLocaleString("es")}€
+                      {fmtEs(g.total)}€
                     </td>
                     <td className="p-sm font-bold tabular-nums val-euro">
-                      {avg.toLocaleString("es")}€
+                      {fmtEs(avg)}€
                     </td>
                     <td className="p-sm text-on-surface-variant tabular-nums val-euro">
                       {prevAvgByGroup.has(g.group)
-                        ? `${prevAvgByGroup.get(g.group)!.toLocaleString("es")}€`
+                        ? `${fmtEs(prevAvgByGroup.get(g.group)!)}€`
                         : "—"}
                     </td>
                   </tr>

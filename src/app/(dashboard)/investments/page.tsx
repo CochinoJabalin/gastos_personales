@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { t } from "@/lib/i18n";
+import { fmtEs } from "@/lib/format";
 import CrowdlendingTab from "@/components/CrowdlendingTab";
 
 type Tab = "portfolio" | "holdings" | "dividends" | "operations" | "crowdlending";
@@ -71,13 +72,13 @@ function PortfolioTab() {
   return (
     <div className="space-y-lg">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
-        <StatCard label={t("investments.total_value")} value={`${summary.valor_total.toLocaleString("es")} €`} />
-        <StatCard label={t("investments.total_invested")} value={`${summary.total_invertido.toLocaleString("es")} €`} />
+        <StatCard label={t("investments.total_value")} value={`${fmtEs(summary.valor_total)} €`} />
+        <StatCard label={t("investments.total_invested")} value={`${fmtEs(summary.total_invertido)} €`} />
         <StatCard label={t("investments.total_return")} value={`${summary.rentabilidad_total.toFixed(2)}%`} positive={summary.rentabilidad_total >= 0} />
-        <StatCard label={t("investments.unrealized_gains")} value={`${summary.plusvalias_no_realizadas.toLocaleString("es")} €`} positive={summary.plusvalias_no_realizadas >= 0} />
-        <StatCard label={t("investments.annual_dividends")} value={`${summary.dividendos_anuales.toLocaleString("es")} €`} />
+        <StatCard label={t("investments.unrealized_gains")} value={`${fmtEs(summary.plusvalias_no_realizadas)} €`} positive={summary.plusvalias_no_realizadas >= 0} />
+        <StatCard label={t("investments.annual_dividends")} value={`${fmtEs(summary.dividendos_anuales)} €`} />
         <StatCard label={t("investments.dividend_yield")} value={`${summary.dividend_yield.toFixed(2)}%`} />
-        <StatCard label={t("investments.realized_return")} value={`${summary.plusvalias_realizadas.toLocaleString("es")} €`} positive={summary.plusvalias_realizadas >= 0} />
+        <StatCard label={t("investments.realized_return")} value={`${fmtEs(summary.plusvalias_realizadas)} €`} positive={summary.plusvalias_realizadas >= 0} />
       </div>
 
       <section className="bg-surface-container border border-outline-variant p-lg rounded-xl">
@@ -86,7 +87,7 @@ function PortfolioTab() {
           {Object.entries(summary.tipo_allocation || {}).map(([tipo, valor]) => (
             <div key={tipo} className="flex justify-between text-body-sm">
               <span className="text-on-surface-variant">{tipo}</span>
-              <span className="text-on-surface">{Number(valor).toLocaleString("es")} €</span>
+              <span className="text-on-surface">{fmtEs(Number(valor))} €</span>
             </div>
           ))}
         </div>
@@ -108,7 +109,7 @@ function PortfolioTab() {
               <tr key={item.ticker} className="border-t border-outline-variant/50">
                 <td className="py-sm pr-md font-mono">{item.ticker}</td>
                 <td className="py-sm pr-md text-on-surface-variant">{item.name}</td>
-                <td className="py-sm pr-md text-right font-mono">{item.valor.toLocaleString("es")} €</td>
+                <td className="py-sm pr-md text-right font-mono">{fmtEs(item.valor)} €</td>
                 <td className="py-sm text-right text-on-surface-variant">{item.peso.toFixed(1)}%</td>
               </tr>
             ))}

@@ -8,8 +8,26 @@ export function parseSpanishNumber(value: string): number {
   return parseFloat(s);
 }
 
+/**
+ * Format a number with Spanish decimal notation (comma as decimal, dot as thousands).
+ * Always outputs 2 decimal places.
+ */
 export function formatSpanish(value: number): string {
-  return value.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return fmtEs(value, 2);
+}
+
+/**
+ * Format a number with Spanish locale: dot as thousands separator, comma as decimal.
+ * @param decimals - number of decimal places (default: 0 for integers, 2 for fractional)
+ */
+export function fmtEs(value: number, decimals?: number): string {
+  const d = decimals !== undefined ? decimals : (Number.isInteger(value) ? 0 : 2);
+  const fixed = Math.abs(value).toFixed(d);
+  const [intPart, decPart] = fixed.split(".");
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const sign = value < 0 ? "-" : "";
+  if (d === 0) return `${sign}${intFormatted}`;
+  return `${sign}${intFormatted},${decPart}`;
 }
 
 export function isIncome(group: string): boolean {
