@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
 import ConceptCombobox from "@/components/ConceptCombobox";
+import ValueBlur from "@/components/ValueBlur";
 import { parseSpanishNumber, formatSpanish, isIncome } from "@/lib/format";
+import { useView } from "@/lib/ViewContext";
 
 interface Transaction {
   id: string;
@@ -79,6 +81,7 @@ export default function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModal, setBatchModal] = useState<{ field: string; open: boolean }>({ field: "", open: false });
   const [batchValue, setBatchValue] = useState("");
+  const { hideValues, setHideValues } = useView();
   const originalConceptRef = useRef("");
 
   const [catFilters, setCatFilters] = useState({
@@ -331,12 +334,25 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="p-lg space-y-lg">
+    <div className={`p-lg space-y-lg ${hideValues ? "hide-cifras" : ""}`}>
       <div className="flex justify-between items-center">
         <h1 className="text-headline-md text-on-surface">
           {showFuture ? "Operaciones Futuras" : "Todas las Operaciones"}
         </h1>
         <div className="flex items-center gap-md">
+          <button
+            onClick={() => setHideValues(!hideValues)}
+            className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
+              hideValues
+                ? "bg-primary text-primary-on"
+                : "bg-surface-dim text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">
+              {hideValues ? "visibility_off" : "visibility"}
+            </span>
+            Ocultar cifras
+          </button>
           <button
             onClick={() => setShowFuture(!showFuture)}
             className="px-lg py-md bg-tertiary-container text-on-tertiary-container rounded-lg text-body-sm"
@@ -411,7 +427,7 @@ export default function TransactionsPage() {
                           <td className="p-md text-on-surface font-medium">{t.concept}</td>
                           <td className="p-md text-on-surface-variant text-body-sm">{t.bank?.bank_name || "-"}</td>
                           <td className={`p-md text-right font-mono ${Number(t.amount) < 0 ? "text-error" : "text-success"}`}>
-                            {formatSpanish(Math.abs(Number(t.amount)))}€
+                            <ValueBlur hidden={hideValues}>{formatSpanish(Math.abs(Number(t.amount)))}€</ValueBlur>
                           </td>
                         </tr>
                       ))
@@ -942,7 +958,7 @@ export default function TransactionsPage() {
                           />
                         </td>
                         <td className={`p-md text-right font-mono ${Number(t.amount) < 0 ? "text-error" : "text-success"}`}>
-                          {formatSpanish(Math.abs(Number(t.amount)))}€
+                          <ValueBlur hidden={hideValues}>{formatSpanish(Math.abs(Number(t.amount)))}€</ValueBlur>
                         </td>
                         <td className="p-md">
                           <div className="flex gap-2">

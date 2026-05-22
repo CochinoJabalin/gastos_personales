@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
+import ValueBlur from "@/components/ValueBlur";
+import { useView } from "@/lib/ViewContext";
+import { fmtEs } from "@/lib/format";
 
 interface Account {
   id: string;
@@ -37,9 +40,11 @@ interface AutoTopupConfig {
   checkIntervalHours: number;
   enabled: boolean;
   lastCheck: string | null;
+  nextRun: string | null;
 }
 
 export default function TransfersPage() {
+  const { hideValues, setHideValues } = useView();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [autoTopup, setAutoTopup] = useState<AutoTopupConfig | null>(null);
@@ -207,22 +212,37 @@ export default function TransfersPage() {
   const toAccount = accounts.find((a) => a.id === toAccountId);
 
   return (
-    <div className={`mx-auto py-lg space-y-lg ${tab === "scheduled" ? "max-w-5xl" : "max-w-2xl"}`}>
+    <div className={`mx-auto py-lg space-y-lg ${tab === "scheduled" ? "max-w-5xl" : "max-w-2xl"} ${hideValues ? "hide-cifras" : ""}`}>
       {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(["new", "scheduled", "pending", "completed"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-body-sm font-medium transition-colors ${
-              tab === t
-                ? "bg-primary text-primary-on"
-                : "bg-surface-container-high text-on-surface-variant hover:text-on-surface"
-            }`}
-          >
-            {t === "new" ? "Nueva" : t === "scheduled" ? "Programadas" : t === "pending" ? "Pendientes" : "Completadas"}
-          </button>
-        ))}
+      <div className="flex gap-2 flex-wrap items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {(["new", "scheduled", "pending", "completed"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-lg text-body-sm font-medium transition-colors ${
+                tab === t
+                  ? "bg-primary text-primary-on"
+                  : "bg-surface-container-high text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              {t === "new" ? "Nueva" : t === "scheduled" ? "Programadas" : t === "pending" ? "Pendientes" : "Completadas"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setHideValues(!hideValues)}
+          className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
+            hideValues
+              ? "bg-primary text-primary-on"
+              : "bg-surface-dim text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">
+            {hideValues ? "visibility_off" : "visibility"}
+          </span>
+          Ocultar cifras
+        </button>
       </div>
 
       {tab === "new" && (
@@ -445,7 +465,7 @@ export default function TransfersPage() {
                         </div>
                       ) : (
                         <span className="text-body-sm text-on-surface font-medium">
-                          {autoTopup.amount.toLocaleString("es", { minimumFractionDigits: 2 })} €
+                          <ValueBlur hidden={hideValues}>{fmtEs(autoTopup.amount, 2)} €</ValueBlur>
                         </span>
                       )}
                     </td>
@@ -469,9 +489,11 @@ export default function TransfersPage() {
                       )}
                     </td>
                     <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                      {autoTopup.lastCheck
-                        ? new Date(autoTopup.lastCheck).toLocaleString("es")
-                        : "Pendiente"}
+                      {autoTopup.nextRun
+                        ? new Date(autoTopup.nextRun).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+                        : autoTopup.lastCheck
+                          ? new Date(autoTopup.lastCheck).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+                          : "Pendiente"}
                     </td>
                     <td className="p-md whitespace-nowrap">
                       <ConditionalChip
@@ -545,14 +567,27 @@ export default function TransfersPage() {
                     })
                     .map((t) => (
                       <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
-                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                          {t.from_account.bank.bank_name} - {t.from_account.account_label}
-                        </td>
-                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                          {t.to_account.bank.bank_name} - {t.to_account.account_label}
-                        </td>
+                        {t.from_account_id === t.to_account_id ? (
+                          <td colSpan={2} className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                            <span className="flex items-center gap-xs text-positive">
+                              <span className="material-symbols-outlined text-sm">savings</span>
+                              Rendimientos — {t.to_account.bank.bank_name} - {t.to_account.account_label}
+                            </span>
+                          </td>
+                        ) : (
+                          <>
+                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                              {t.from_account.bank.bank_name} - {t.from_account.account_label}
+                            </td>
+                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                              {t.to_account.bank.bank_name} - {t.to_account.account_label}
+                            </td>
+                          </>
+                        )}
                         <td className="p-md text-body-sm text-on-surface font-medium whitespace-nowrap">
-                          {t.amount.toLocaleString("es", { minimumFractionDigits: 2 })} €
+                          <ValueBlur hidden={hideValues}>
+                            {fmtEs(t.amount, 2)} €{t.from_account_id === t.to_account_id && ` / ${t.frequency === "diario" ? "día" : "mes"}`}
+                          </ValueBlur>
                         </td>
                         <td className="p-md whitespace-nowrap">
                           {t.frequency ? (
@@ -563,7 +598,14 @@ export default function TransfersPage() {
                         </td>
                         <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
                           {t.next_run
-                            ? new Date(t.next_run).toLocaleDateString("es")
+                            ? t.frequency === "diario"
+                              ? (() => {
+                                  const d = new Date(t.next_run);
+                                  const today = new Date();
+                                  const isToday = d.toDateString() === today.toDateString();
+                                  return `${isToday ? "Hoy" : "Mañana"}, ${d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`;
+                                })()
+                              : new Date(t.next_run).toLocaleDateString("es")
                             : "—"}
                         </td>
                         <td className="p-md whitespace-nowrap">
@@ -647,10 +689,7 @@ export default function TransfersPage() {
                       </p>
                       <p>
                         <span className="text-on-surface">Importe:</span>{" "}
-                        {t.amount.toLocaleString("es", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        €
+                        <ValueBlur hidden={hideValues}>{fmtEs(t.amount, 2)} €</ValueBlur>
                       </p>
                       {t.next_run && (
                         <p>
@@ -728,10 +767,7 @@ export default function TransfersPage() {
                       </p>
                       <p>
                         <span className="text-on-surface">Importe:</span>{" "}
-                        {t.amount.toLocaleString("es", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        €
+                        <ValueBlur hidden={hideValues}>{fmtEs(t.amount, 2)} €</ValueBlur>
                       </p>
                       <p>
                         <span className="text-on-surface">Fecha:</span>{" "}

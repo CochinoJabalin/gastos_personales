@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { formatSpanish } from "@/lib/format";
+import ValueBlur from "@/components/ValueBlur";
+import { formatSpanish, fmtEs } from "@/lib/format";
 import { formatIBAN } from "@/lib/iban";
+import { useView } from "@/lib/ViewContext";
 
 interface Account {
   id: string;
@@ -27,6 +29,7 @@ interface Bank {
 }
 
 export default function BanksSettingsPage() {
+  const { hideValues, setHideValues } = useView();
   const pathname = usePathname();
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +133,7 @@ export default function BanksSettingsPage() {
     setEditIban(acc.iban || "");
     setEditRate(acc.interest_rate.toString());
     setEditPeriod(acc.interest_period);
-    setEditBalance(acc.balance.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    setEditBalance(fmtEs(acc.balance, 2));
   }
 
   async function saveEdit() {
@@ -183,7 +186,7 @@ export default function BanksSettingsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setCalcInterestResult(`Bruto: ${data.interest_gross.toLocaleString("es")}€ · Ret. 19%: ${data.withholding.toLocaleString("es")}€ · Neto: ${data.interest_net.toLocaleString("es")}€`);
+        setCalcInterestResult(`Bruto: ${fmtEs(data.interest_gross)}€ · Ret. 19%: ${fmtEs(data.withholding)}€ · Neto: ${fmtEs(data.interest_net)}€`);
         fetchBanks();
       } else {
         setCalcInterestResult(`Error: ${data.error}`);
@@ -233,10 +236,23 @@ export default function BanksSettingsPage() {
         <div>
           <h1 className="text-headline-md text-on-surface">Bancos</h1>
           <p className="text-body-sm text-on-surface-variant mt-xs">
-            {banks.length} banco{banks.length !== 1 ? "s" : ""} · Balance total: {formatSpanish(totalBalance)}€
+            {banks.length} banco{banks.length !== 1 ? "s" : ""} · Balance total: <ValueBlur hidden={hideValues}>{formatSpanish(totalBalance)}€</ValueBlur>
           </p>
         </div>
         <div className="flex gap-sm">
+          <button
+            onClick={() => setHideValues(!hideValues)}
+            className={`flex items-center gap-xs px-sm py-1 rounded-lg text-label-caps text-[10px] uppercase transition-colors ${
+              hideValues
+                ? "bg-primary text-primary-on"
+                : "bg-surface-dim text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">
+              {hideValues ? "visibility_off" : "visibility"}
+            </span>
+            Ocultar cifras
+          </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="flex items-center gap-sm bg-primary text-primary-on px-lg py-md rounded-lg text-label-caps hover:opacity-90"
@@ -277,7 +293,7 @@ export default function BanksSettingsPage() {
       )}
 
       {/* Bank Cards */}
-      <div className="space-y-lg">
+    <div className={`space-y-lg ${hideValues ? "hide-cifras" : ""}`}>
         {banks.length === 0 ? (
           <div className="text-center py-20 text-on-surface-variant">
             <span className="material-symbols-outlined text-4xl mb-4">account_balance</span>
@@ -298,7 +314,7 @@ export default function BanksSettingsPage() {
                 </div>
                 <div className="flex items-center gap-sm">
                   <p className={`text-data-mono font-mono ${b.balance >= 0 ? "text-success" : "text-error"}`}>
-                    {formatSpanish(b.balance)}€
+                    <ValueBlur hidden={hideValues}>{formatSpanish(b.balance)}€</ValueBlur>
                   </p>
                 </div>
               </div>
@@ -355,7 +371,7 @@ export default function BanksSettingsPage() {
                         </div>
                         <div className="flex items-center gap-md shrink-0">
                           <p className={`text-data-mono font-mono ${acc.balance >= 0 ? "text-success" : "text-error"}`}>
-                            {formatSpanish(acc.balance)}€
+                            <ValueBlur hidden={hideValues}>{formatSpanish(acc.balance)}€</ValueBlur>
                           </p>
                           <div className="flex gap-xs">
                             {!acc.is_default && (
