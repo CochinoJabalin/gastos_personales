@@ -4,10 +4,15 @@ import { executeTransfer } from "@/lib/transfer-utils";
 const DEFAULT_INTERVAL_HOURS = 3;
 
 class AutoTopupManager {
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private timeoutId: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
   private processing = false;
   private currentIntervalHours = DEFAULT_INTERVAL_HOURS;
+  private _nextRun: Date | null = null;
+
+  get nextRun(): Date | null {
+    return this._nextRun;
+  }
 
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -19,9 +24,9 @@ class AutoTopupManager {
   }
 
   private async scheduleNextCheck(): Promise<void> {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
 
     try {
@@ -31,16 +36,45 @@ class AutoTopupManager {
       this.currentIntervalHours = DEFAULT_INTERVAL_HOURS;
     }
 
-    const intervalMs = this.currentIntervalHours * 60 * 60 * 1000;
-    this.intervalId = setInterval(() => this.checkAndTopup(), intervalMs);
-    console.log(`[AutoTopup] Scheduled to check every ${this.currentIntervalHours} hours`);
+    // Align to next exact hour boundary
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setMinutes(0, 0, 0);
+    // Find the next exact hour that is a multiple of the interval from midnight
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const interval = this.currentIntervalHours;
+    // Next aligned slot
+    let nextSlotHour = Math.ceil((currentHour + (currentMinutes > 0 ? 1 : 0)) / interval) * interval;
+    if (nextSlotHour <= currentHour && currentMinutes > 0) {
+      nextSlotHour += interval;
+    }
+    // Handle day overflow
+    const nextRunDate = new Date(now);
+    nextRunDate.setHours(nextSlotHour % 24, 0, 0, 0);
+    if (nextSlotHour >= 24) {
+      nextRunDate.setDate(nextRunDate.getDate() + 1);
+    }
+
+    this._nextRun = nextRunDate;
+    const delayMs = nextRunDate.getTime() - now.getTime();
+
+    this.timeoutId = setTimeout(() => this.onTick(), delayMs);
+    console.log(`[AutoTopup] Scheduled to check every ${this.currentIntervalHours}h — next run at ${nextRunDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`);
+  }
+
+  private async onTick(): Promise<void> {
+    await this.checkAndTopup();
+    // Schedule next tick at exact hour
+    await this.scheduleNextCheck();
   }
 
   stop(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
+    this._nextRun = null;
     this.initialized = false;
   }
 

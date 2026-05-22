@@ -23,6 +23,7 @@ export async function GET() {
     checkIntervalHours: config.checkIntervalHours,
     enabled: config.enabled,
     lastCheck: config.lastCheck,
+    nextRun: autoTopupManager.nextRun,
   });
 }
 
@@ -64,5 +65,6 @@ export async function PUT(request: NextRequest) {
     checkIntervalHours: config.checkIntervalHours,
     enabled: config.enabled,
     lastCheck: config.lastCheck,
+    nextRun: autoTopupManager.nextRun,
   });
 }
