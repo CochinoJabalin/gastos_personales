@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
 import ConceptCombobox from "@/components/ConceptCombobox";
 import ValueBlur from "@/components/ValueBlur";
-import { parseSpanishNumber, formatSpanish, isIncome } from "@/lib/format";
+import { parseSpanishNumber, formatSpanish, isIncome, fmtDate } from "@/lib/format";
 import { useView } from "@/lib/ViewContext";
 
 interface Transaction {
@@ -423,7 +423,7 @@ export default function TransactionsPage() {
                     ) : (
                       categoryTransactions.map(t => (
                         <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
-                          <td className="p-md text-on-surface-variant">{new Date(t.timestamp).toLocaleDateString("es")}</td>
+                          <td className="p-md text-on-surface-variant">{fmtDate(t.timestamp)}</td>
                           <td className="p-md text-on-surface font-medium">{t.concept}</td>
                           <td className="p-md text-on-surface-variant text-body-sm">{t.bank?.bank_name || "-"}</td>
                           <td className={`p-md text-right font-mono ${Number(t.amount) < 0 ? "text-error" : "text-success"}`}>
@@ -932,7 +932,7 @@ export default function TransactionsPage() {
                           />
                         </td>
                         <td className="p-md text-on-surface-variant">
-                          {new Date(t.timestamp).toLocaleDateString("es")}
+                          {fmtDate(t.timestamp)}
                         </td>
                         <td className="p-md">
                           <div className="text-on-surface font-medium">{t.concept}</div>

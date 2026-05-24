@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
+import { fmtDate } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 
 interface Account {
@@ -77,7 +78,7 @@ function formatEur(v: number) {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("es");
+  return fmtDate(d);
 }
 
 export default function CrowdlendingTab() {

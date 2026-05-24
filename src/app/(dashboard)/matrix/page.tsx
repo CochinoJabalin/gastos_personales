@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import StatCard from "@/components/StatCard";
 import ConditionalChip from "@/components/ConditionalChip";
-import { formatSpanish, fmtEs } from "@/lib/format";
+import { formatSpanish, fmtEs, fmtDate } from "@/lib/format";
 import { useView } from "@/lib/ViewContext";
 
 interface MatrixMonth {
@@ -576,7 +576,7 @@ export default function MatrixPage() {
                           {formatSpanish(Math.abs(tx.amount))}€
                         </td>
                         <td className="p-sm text-on-surface-variant">
-                          {new Date(tx.timestamp).toLocaleDateString("es")}
+                          {fmtDate(tx.timestamp)}
                         </td>
                         <td className="p-sm text-on-surface-variant">
                           {tx.bank?.bank_name || "-"}

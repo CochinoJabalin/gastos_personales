@@ -30,6 +30,17 @@ export function fmtEs(value: number, decimals?: number): string {
   return `${sign}${intFormatted},${decPart}`;
 }
 
+/**
+ * Format a date as dd/mm/yyyy with zero-padded day and month.
+ */
+export function fmtDate(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function isIncome(group: string): boolean {
   const g = group.toLowerCase();
   return g.includes("ingreso") || g === "ahorro" || g === "myinvestor";

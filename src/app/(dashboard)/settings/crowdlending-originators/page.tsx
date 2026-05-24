@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { fmtDate } from "@/lib/format";
 
 interface Originator {
   id: string;
@@ -142,7 +143,7 @@ export default function CrowdlendingOriginatorsPage() {
                         />
                       </td>
                       <td className="p-md text-body-sm text-on-surface-variant">
-                        {new Date(o.created_at).toLocaleDateString("es")}
+                        {fmtDate(o.created_at)}
                       </td>
                       <td className="p-md">
                         <div className="flex gap-1">
@@ -165,7 +166,7 @@ export default function CrowdlendingOriginatorsPage() {
                     <>
                       <td className="p-md text-on-surface font-medium">{o.name}</td>
                       <td className="p-md text-body-sm text-on-surface-variant">
-                        {new Date(o.created_at).toLocaleDateString("es")}
+                        {fmtDate(o.created_at)}
                       </td>
                       <td className="p-md">
                         <div className="flex gap-2">
