@@ -121,13 +121,33 @@ model Transfer {
 
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
+
+  executions      TransferExecution[]
+}
+
+model TransferExecution {
+  id                    String    @id @default(uuid())
+  transfer_id           String
+  transfer              Transfer  @relation(fields: [transfer_id], references: [id], onDelete: Cascade)
+  
+  executed_at           DateTime  @default(now())
+  amount                Decimal   // Amount actually transferred
+  
+  from_balance_before   Decimal   // Source account balance before transfer
+  from_balance_after    Decimal   // Source account balance after transfer
+  to_balance_before     Decimal   // Destination account balance before transfer
+  to_balance_after      Decimal   // Destination account balance after transfer
+  
+  status                String    @default("completed") // completed | failed
+  error_message         String?   // If failed, store error message
 }
 
 model InvestmentInstrument {
   id                String    @id @default(uuid())
-  ticker            String    @unique
+  ticker            String?   @unique  // Optional but unique if present (e.g., "NYSE:KOS", "BME:IDR")
+  isin              String?   @unique  // Optional but unique if present (e.g., "US5006881065")
   name              String
-  type              String
+  type              String             // STOCK, ETF, ETC, FUND, RIGHT
   currency          String    @default("EUR")
   current_price     Decimal?
   exchange_rate_to_eur Decimal? @default(1)
@@ -193,6 +213,15 @@ model InvestmentTransaction {
   comentarios           String?
   created_transaction_id String?
   created_at            DateTime @default(now())
+  
+  // Campos para dividendos (IRPF)
+  importe_bruto_orig    Decimal?  @db.Decimal(14, 4)  // Bruto en divisa original
+  importe_bruto_eur     Decimal?  @db.Decimal(14, 4)  // Bruto convertido a EUR
+  retencion_origen_pct  Decimal?  @db.Decimal(5, 2)   // % retención país origen
+  retencion_origen_eur  Decimal?  @db.Decimal(14, 4)  // Retención origen en EUR
+  retencion_esp_pct     Decimal?  @db.Decimal(5, 2)   // % retención España (19%)
+  retencion_esp_eur     Decimal?  @db.Decimal(14, 4)  // Retención España en EUR
+  dividendo_por_titulo  Decimal?  @db.Decimal(14, 6)  // Dividendo por acción
 }
 
 model MappingRule {

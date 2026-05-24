@@ -21,6 +21,11 @@ export async function executeTransfer(transferId: string): Promise<void> {
     return;
   }
 
+  // Capture balances BEFORE transfer
+  const fromBalanceBefore = Number(transfer.from_account.balance);
+  const toBalanceBefore = Number(transfer.to_account.balance);
+  const transferAmount = Number(transfer.amount);
+
   // Normal transfer logic
   const sameBank = transfer.from_account.bank_id === transfer.to_account.bank_id;
 
@@ -28,7 +33,7 @@ export async function executeTransfer(transferId: string): Promise<void> {
   await prisma.transaction.create({
     data: {
       concept: transfer.concept,
-      amount: -transfer.amount,
+      amount: -transferAmount,
       bank_id: transfer.from_account.bank_id,
       account_id: transfer.from_account_id,
       group: "Transferencia",
@@ -43,7 +48,7 @@ export async function executeTransfer(transferId: string): Promise<void> {
   await prisma.transaction.create({
     data: {
       concept: transfer.concept,
-      amount: transfer.amount,
+      amount: transferAmount,
       bank_id: transfer.to_account.bank_id,
       account_id: transfer.to_account_id,
       group: "Transferencia",
@@ -57,28 +62,46 @@ export async function executeTransfer(transferId: string): Promise<void> {
   // Update source account balance
   await prisma.account.update({
     where: { id: transfer.from_account_id },
-    data: { balance: { decrement: transfer.amount } },
+    data: { balance: { decrement: transferAmount } },
   });
 
   // Update destination account balance
   await prisma.account.update({
     where: { id: transfer.to_account_id },
-    data: { balance: { increment: transfer.amount } },
+    data: { balance: { increment: transferAmount } },
   });
 
   // Update source bank balance
   await prisma.bank.update({
     where: { id: transfer.from_account.bank_id },
-    data: { balance: { decrement: transfer.amount } },
+    data: { balance: { decrement: transferAmount } },
   });
 
   // Update destination bank balance (if different bank)
   if (!sameBank) {
     await prisma.bank.update({
       where: { id: transfer.to_account.bank_id },
-      data: { balance: { increment: transfer.amount } },
+      data: { balance: { increment: transferAmount } },
     });
   }
+
+  // Calculate balances AFTER transfer
+  const fromBalanceAfter = fromBalanceBefore - transferAmount;
+  const toBalanceAfter = toBalanceBefore + transferAmount;
+
+  // Create execution record with balance snapshots
+  await prisma.transferExecution.create({
+    data: {
+      transfer_id: transfer.id,
+      executed_at: now,
+      amount: transferAmount,
+      from_balance_before: fromBalanceBefore,
+      from_balance_after: fromBalanceAfter,
+      to_balance_before: toBalanceBefore,
+      to_balance_after: toBalanceAfter,
+      status: "completed",
+    },
+  });
 
   // Calculate next run for scheduled transfers
   let nextRun: Date | null = null;
@@ -185,6 +208,10 @@ async function executeInterestPayment(
     return;
   }
 
+  // Capture balances BEFORE interest payment
+  const balanceBefore = balance;
+  const balanceAfter = balance + netRounded;
+
   // Update account balance with net interest
   await prisma.account.update({
     where: { id: account.id },
@@ -202,6 +229,20 @@ async function executeInterestPayment(
   await prisma.bank.update({
     where: { id: account.bank_id },
     data: { balance: agg._sum.balance ?? 0 },
+  });
+
+  // Create execution record for interest payment
+  await prisma.transferExecution.create({
+    data: {
+      transfer_id: transfer.id,
+      executed_at: now,
+      amount: netRounded,
+      from_balance_before: balanceBefore,
+      from_balance_after: balanceAfter,
+      to_balance_before: balanceBefore, // Same account for interest
+      to_balance_after: balanceAfter,
+      status: "completed",
+    },
   });
 
   // Update transfer with the actual amount paid and advance schedule

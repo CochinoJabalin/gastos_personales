@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import ConditionalChip from "@/components/ConditionalChip";
 import ValueBlur from "@/components/ValueBlur";
 import { useView } from "@/lib/ViewContext";
-import { fmtEs } from "@/lib/format";
+import { fmtEs, fmtDate } from "@/lib/format";
 
 interface Account {
   id: string;
@@ -43,10 +43,38 @@ interface AutoTopupConfig {
   nextRun: string | null;
 }
 
+interface TransferExecution {
+  id: string;
+  transfer_id: string;
+  executed_at: string;
+  amount: number;
+  from_balance_before: number;
+  from_balance_after: number;
+  to_balance_before: number;
+  to_balance_after: number;
+  status: string;
+  error_message: string | null;
+  from_account: {
+    id: string;
+    account_label: string;
+    bank_name: string;
+  };
+  to_account: {
+    id: string;
+    account_label: string;
+    bank_name: string;
+  };
+  concept: string;
+  is_interest_payment: boolean;
+  is_scheduled: boolean;
+  frequency: string | null;
+}
+
 export default function TransfersPage() {
   const { hideValues, setHideValues } = useView();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [executions, setExecutions] = useState<TransferExecution[]>([]);
   const [autoTopup, setAutoTopup] = useState<AutoTopupConfig | null>(null);
   const [tab, setTab] = useState<"new" | "scheduled" | "pending" | "completed">("scheduled");
 
@@ -72,6 +100,7 @@ export default function TransfersPage() {
     fetchAccounts();
     fetchTransfers();
     fetchAutoTopupConfig();
+    fetchExecutions();
   }, []);
 
   async function fetchAccounts() {
@@ -87,6 +116,14 @@ export default function TransfersPage() {
       const res = await fetch("/api/transfers?limit=100");
       const data = await res.json();
       setTransfers(data.data || []);
+    } catch {}
+  }
+
+  async function fetchExecutions() {
+    try {
+      const res = await fetch("/api/transfers/executions?months=2&limit=100");
+      const data = await res.json();
+      setExecutions(data.data || []);
     } catch {}
   }
 
@@ -180,6 +217,7 @@ export default function TransfersPage() {
       const res = await fetch(`/api/transfers/${id}/execute`, { method: "POST" });
       if (res.ok) {
         fetchTransfers();
+        fetchExecutions();
       }
     } catch {}
   };
@@ -414,6 +452,7 @@ export default function TransfersPage() {
       )}
 
       {tab === "scheduled" && (
+        <>
         <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden w-full">
           <div className="overflow-x-auto">
             <table className="text-left w-full min-w-max">
@@ -605,7 +644,7 @@ export default function TransfersPage() {
                                   const isToday = d.toDateString() === today.toDateString();
                                   return `${isToday ? "Hoy" : "Mañana"}, ${d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`;
                                 })()
-                              : new Date(t.next_run).toLocaleDateString("es")
+                              : fmtDate(t.next_run)
                             : "—"}
                         </td>
                         <td className="p-md whitespace-nowrap">
@@ -650,6 +689,108 @@ export default function TransfersPage() {
             </table>
           </div>
         </div>
+
+        {/* Historial de ejecuciones - últimos 2 meses */}
+        <div className="mt-lg">
+          <h3 className="text-headline-sm text-on-surface mb-md">Historial de Ejecuciones (últimos 2 meses)</h3>
+          <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden w-full">
+            <div className="overflow-x-auto">
+              <table className="text-left w-full min-w-max">
+                <thead>
+                  <tr className="bg-surface-container-high text-label-caps text-on-surface-variant">
+                    <th className="p-md whitespace-nowrap">Fecha/Hora</th>
+                    <th className="p-md whitespace-nowrap">Origen</th>
+                    <th className="p-md whitespace-nowrap">Destino</th>
+                    <th className="p-md whitespace-nowrap">Importe</th>
+                    <th className="p-md whitespace-nowrap">Saldo Origen (Antes)</th>
+                    <th className="p-md whitespace-nowrap">Saldo Origen (Después)</th>
+                    <th className="p-md whitespace-nowrap">Saldo Destino (Antes)</th>
+                    <th className="p-md whitespace-nowrap">Saldo Destino (Después)</th>
+                    <th className="p-md whitespace-nowrap">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {executions.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-lg text-center text-on-surface-variant text-body-sm">
+                        No hay ejecuciones registradas en los últimos 2 meses
+                      </td>
+                    </tr>
+                  ) : (
+                    executions.map((exec) => (
+                      <tr key={exec.id} className="hover:bg-surface-container-low transition-colors">
+                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                          {fmtDate(exec.executed_at)}{" "}
+                          <span className="text-on-surface-variant">
+                            {new Date(exec.executed_at).toLocaleTimeString("es", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </td>
+                        {exec.is_interest_payment ? (
+                          <td colSpan={2} className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                            <span className="flex items-center gap-xs text-positive">
+                              <span className="material-symbols-outlined text-sm">savings</span>
+                              Rendimientos — {exec.from_account.bank_name} - {exec.from_account.account_label}
+                            </span>
+                          </td>
+                        ) : (
+                          <>
+                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                              {exec.from_account.bank_name} - {exec.from_account.account_label}
+                            </td>
+                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                              {exec.to_account.bank_name} - {exec.to_account.account_label}
+                            </td>
+                          </>
+                        )}
+                        <td className="p-md text-body-sm text-on-surface font-medium whitespace-nowrap">
+                          <ValueBlur hidden={hideValues}>
+                            {exec.is_interest_payment ? "+" : ""}{fmtEs(exec.amount, 2)} €
+                          </ValueBlur>
+                        </td>
+                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                          <ValueBlur hidden={hideValues}>{fmtEs(exec.from_balance_before, 2)} €</ValueBlur>
+                        </td>
+                        <td className="p-md text-body-sm whitespace-nowrap">
+                          <ValueBlur hidden={hideValues}>
+                            <span className={exec.is_interest_payment ? "text-positive" : "text-error"}>
+                              {fmtEs(exec.from_balance_after, 2)} €
+                            </span>
+                          </ValueBlur>
+                        </td>
+                        {exec.is_interest_payment ? (
+                          <td colSpan={2} className="p-md text-body-sm text-on-surface-variant text-center whitespace-nowrap">
+                            —
+                          </td>
+                        ) : (
+                          <>
+                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
+                              <ValueBlur hidden={hideValues}>{fmtEs(exec.to_balance_before, 2)} €</ValueBlur>
+                            </td>
+                            <td className="p-md text-body-sm whitespace-nowrap">
+                              <ValueBlur hidden={hideValues}>
+                                <span className="text-positive">{fmtEs(exec.to_balance_after, 2)} €</span>
+                              </ValueBlur>
+                            </td>
+                          </>
+                        )}
+                        <td className="p-md whitespace-nowrap">
+                          <ConditionalChip
+                            label={exec.status === "completed" ? "Completada" : "Error"}
+                            variant={exec.status === "completed" ? "success" : "critical"}
+                          />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </>
       )}
 
       {tab === "pending" && (
@@ -694,13 +835,13 @@ export default function TransfersPage() {
                       {t.next_run && (
                         <p>
                           <span className="text-on-surface">Próxima ejecución:</span>{" "}
-                          {new Date(t.next_run).toLocaleDateString("es")}
+                          {fmtDate(t.next_run)}
                         </p>
                       )}
                       {t.last_run && (
                         <p>
                           <span className="text-on-surface">Última ejecución:</span>{" "}
-                          {new Date(t.last_run).toLocaleDateString("es")}
+                          {fmtDate(t.last_run)}
                         </p>
                       )}
                     </div>
@@ -771,7 +912,7 @@ export default function TransfersPage() {
                       </p>
                       <p>
                         <span className="text-on-surface">Fecha:</span>{" "}
-                        {new Date(t.timestamp).toLocaleDateString("es")}
+                        {fmtDate(t.timestamp)}
                       </p>
                     </div>
                   </div>

@@ -120,13 +120,33 @@ model Transfer {
 
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
+
+  executions      TransferExecution[]
+}
+
+model TransferExecution {
+  id                    String    @id @default(uuid())
+  transfer_id           String
+  transfer              Transfer  @relation(fields: [transfer_id], references: [id], onDelete: Cascade)
+  
+  executed_at           DateTime  @default(now())
+  amount                Float     // Amount actually transferred
+  
+  from_balance_before   Float     // Source account balance before transfer
+  from_balance_after    Float     // Source account balance after transfer
+  to_balance_before     Float     // Destination account balance before transfer
+  to_balance_after      Float     // Destination account balance after transfer
+  
+  status                String    @default("completed") // completed | failed
+  error_message         String?   // If failed, store error message
 }
 
 model InvestmentInstrument {
   id                String   @id @default(uuid())
-  ticker            String   @unique
+  ticker            String?  @unique  // Optional but unique if present (e.g., "NYSE:KOS", "BME:IDR")
+  isin              String?  @unique  // Optional but unique if present (e.g., "US5006881065")
   name              String
-  type              String
+  type              String            // STOCK, ETF, ETC, FUND, RIGHT
   currency          String   @default("EUR")
   current_price     Float?
   exchange_rate_to_eur Float? @default(1)
@@ -192,6 +212,15 @@ model InvestmentTransaction {
   comentarios           String?
   created_transaction_id String?
   created_at            DateTime @default(now())
+  
+  // Campos para dividendos (IRPF)
+  importe_bruto_orig    Float?   // Bruto en divisa original
+  importe_bruto_eur     Float?   // Bruto convertido a EUR
+  retencion_origen_pct  Float?   // % retención país origen
+  retencion_origen_eur  Float?   // Retención origen en EUR
+  retencion_esp_pct     Float?   // % retención España (19%)
+  retencion_esp_eur     Float?   // Retención España en EUR
+  dividendo_por_titulo  Float?   // Dividendo por acción
 }
 
 model MappingRule {
