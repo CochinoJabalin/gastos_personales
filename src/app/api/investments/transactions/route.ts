@@ -39,6 +39,11 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { type, instrument_id, cantidad, precio_unitario, divisa, exchange_rate, date, account_id, comentarios, dividend_reinvested, is_recurring, recurring_period } = body;
 
+  // Validate account_id is required for manual operations
+  if (!account_id) {
+    return NextResponse.json({ error: "Debes seleccionar una cuenta bancaria para registrar la operación" }, { status: 400 });
+  }
+
   const cantidadNum = Number(cantidad);
   const precioNum = Number(precio_unitario);
   const exchangeNum = Number(exchange_rate || 1);

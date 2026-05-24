@@ -19,7 +19,7 @@ export async function GET() {
   let plusvaliasNoRealizadasTotal = 0;
 
   const tipoAllocation: Record<string, number> = {};
-  const instrumentAllocation: Record<string, { ticker: string; name: string; valor: number }> = {};
+  const instrumentAllocation: Record<string, { ticker: string | null; name: string; valor: number }> = {};
 
   for (const h of holdings) {
     const precioActual = Number(h.instrument.current_price ?? 0);
@@ -79,7 +79,7 @@ export async function GET() {
     instrument_allocation: Object.fromEntries(
       Object.entries(instrumentAllocation)
         .map(([k, v]) => {
-          const entry: [string, { ticker: string; name: string; valor: number; peso: number }] =
+          const entry: [string, { ticker: string | null; name: string; valor: number; peso: number }] =
             [k, { ...v, peso: valorTotal > 0 ? (v.valor / valorTotal) * 100 : 0 }];
           return entry;
         })

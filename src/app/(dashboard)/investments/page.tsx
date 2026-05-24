@@ -1,11 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { t } from "@/lib/i18n";
-import { fmtEs } from "@/lib/format";
+import { fmtEs, fmtDate } from "@/lib/format";
 import CrowdlendingTab from "@/components/CrowdlendingTab";
 
 type Tab = "portfolio" | "holdings" | "dividends" | "operations" | "crowdlending";
+
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// Lookup result type
+type LookupResult = {
+  ticker: string;
+  isin: string | null;
+  name: string;
+  currency: string;
+  type: string;
+  current_price: number | null;
+  exchange_rate: number | null;
+  source: "local" | "yahoo";
+};
 
 export default function InvestmentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("portfolio");
@@ -203,7 +225,7 @@ function HoldingsTab() {
                     </td>
                     <td className="py-sm text-right text-on-surface-variant text-[11px]">
                       {h.instrument.price_updated_at
-                        ? new Date(h.instrument.price_updated_at).toLocaleDateString("es")
+                        ? fmtDate(h.instrument.price_updated_at)
                         : "-"}
                     </td>
                   </tr>
@@ -228,7 +250,7 @@ function HoldingsTab() {
                             <tbody>
                               {h.lots.map((lot: any) => (
                                 <tr key={lot.id} className="border-t border-outline-variant/30">
-                                  <td className="py-xs pr-md">{new Date(lot.fecha_compra).toLocaleDateString("es")}</td>
+                                  <td className="py-xs pr-md">{fmtDate(lot.fecha_compra)}</td>
                                   <td className="py-xs pr-md text-right font-mono">{Number(lot.cantidad_original).toFixed(2)}</td>
                                   <td className="py-xs pr-md text-right font-mono">{Number(lot.cantidad_restante).toFixed(2)}</td>
                                   <td className="py-xs pr-md text-right font-mono">{Number(lot.precio_unitario).toFixed(4)}</td>
@@ -254,6 +276,7 @@ function HoldingsTab() {
 
 function DividendsTab() {
   const [dividends, setDividends] = useState<any[]>([]);
+  const [yearFilter, setYearFilter] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/investments/transactions?type=DIVIDEND")
@@ -269,35 +292,123 @@ function DividendsTab() {
     );
   }
 
-  const totalEur = dividends.reduce((s, d) => s + Number(d.importe_eur), 0);
+  // Get available years
+  const years = [...new Set(dividends.map((d) => new Date(d.date).getFullYear().toString()))].sort().reverse();
+  
+  // Filter by year
+  const filtered = yearFilter 
+    ? dividends.filter((d) => new Date(d.date).getFullYear().toString() === yearFilter)
+    : dividends;
+
+  // Totals
+  const totalBrutoEur = filtered.reduce((s, d) => s + (Number(d.importe_bruto_eur) || 0), 0);
+  const totalRetOrigen = filtered.reduce((s, d) => s + (Number(d.retencion_origen_eur) || 0), 0);
+  const totalRetEsp = filtered.reduce((s, d) => s + (Number(d.retencion_esp_eur) || 0), 0);
+  const totalNetoEur = filtered.reduce((s, d) => s + Number(d.importe_eur), 0);
 
   return (
     <div className="space-y-lg">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
-        <StatCard label={t("investments.total")} value={`${totalEur.toFixed(2)} €`} />
-        <StatCard label={t("investments.quantity")} value={String(dividends.length)} />
+      {/* Year filter */}
+      <div className="flex gap-sm items-center">
+        <span className="text-body-sm text-on-surface-variant">Año:</span>
+        <button
+          onClick={() => setYearFilter("")}
+          className={`px-2 py-1 rounded text-label-caps transition-colors ${
+            !yearFilter ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+          }`}
+        >
+          Todos
+        </button>
+        {years.map((y) => (
+          <button
+            key={y}
+            onClick={() => setYearFilter(y)}
+            className={`px-2 py-1 rounded text-label-caps transition-colors ${
+              yearFilter === y ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+            }`}
+          >
+            {y}
+          </button>
+        ))}
       </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+        <StatCard label="Bruto Total" value={`${fmtEs(totalBrutoEur)} €`} />
+        <StatCard label="Ret. Origen" value={`-${fmtEs(totalRetOrigen)} €`} />
+        <StatCard label="Ret. España" value={`-${fmtEs(totalRetEsp)} €`} />
+        <StatCard label="Neto Total" value={`${fmtEs(totalNetoEur)} €`} positive />
+      </div>
+
+      {/* IRPF Summary */}
+      <section className="bg-tertiary/5 border border-tertiary/20 rounded-xl p-lg">
+        <h4 className="text-body-md font-semibold text-tertiary mb-md flex items-center gap-sm">
+          <span className="material-symbols-outlined text-lg">description</span>
+          Resumen IRPF {yearFilter || "Total"}
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-md text-body-sm">
+          <div>
+            <span className="text-on-surface-variant">Dividendos recibidos:</span>
+            <span className="ml-2 font-mono text-on-surface">{filtered.length}</span>
+          </div>
+          <div>
+            <span className="text-on-surface-variant">Base imponible (Bruto):</span>
+            <span className="ml-2 font-mono text-on-surface">{fmtEs(totalBrutoEur)} €</span>
+          </div>
+          <div>
+            <span className="text-on-surface-variant">Doble imposición (Ret. Origen):</span>
+            <span className="ml-2 font-mono text-on-surface">{fmtEs(totalRetOrigen)} €</span>
+          </div>
+          <div>
+            <span className="text-on-surface-variant">Retención España:</span>
+            <span className="ml-2 font-mono text-on-surface">{fmtEs(totalRetEsp)} €</span>
+          </div>
+        </div>
+      </section>
 
       <section className="bg-surface-container border border-outline-variant rounded-xl overflow-x-auto">
         <table className="w-full text-body-sm">
           <thead>
             <tr className="text-label-caps text-on-surface-variant border-b border-outline-variant">
-              <th className="text-left py-sm px-md">{t("investments.date") || "Fecha"}</th>
-              <th className="text-left py-sm pr-md">{t("investments.ticker")}</th>
-              <th className="text-right py-sm pr-md">{t("investments.quantity")}</th>
-              <th className="text-right py-sm pr-md">{t("investments.original_amount")}</th>
-              <th className="text-right py-sm pr-md">{t("investments.amount_eur")}</th>
-              <th className="text-right py-sm">{t("investments.reinvested")}</th>
+              <th className="text-left py-sm px-md">Fecha</th>
+              <th className="text-left py-sm pr-md">Instrumento</th>
+              <th className="text-right py-sm pr-md">Títulos</th>
+              <th className="text-right py-sm pr-md">Bruto €</th>
+              <th className="text-right py-sm pr-md">Ret. Origen</th>
+              <th className="text-right py-sm pr-md">Ret. ESP</th>
+              <th className="text-right py-sm pr-md">Neto €</th>
+              <th className="text-right py-sm">Reinv.</th>
             </tr>
           </thead>
           <tbody>
-            {dividends.map((d: any) => (
+            {filtered.map((d: any) => (
               <tr key={d.id} className="border-t border-outline-variant/50">
-                <td className="py-sm px-md">{new Date(d.date).toLocaleDateString("es")}</td>
-                <td className="py-sm pr-md font-mono">{d.instrument.ticker}</td>
-                <td className="py-sm pr-md text-right">{Number(d.cantidad).toFixed(2)}</td>
-                <td className="py-sm pr-md text-right font-mono">{Number(d.importe_total).toFixed(2)} {d.divisa}</td>
-                <td className="py-sm pr-md text-right font-mono">{Number(d.importe_eur).toFixed(2)} €</td>
+                <td className="py-sm px-md">{fmtDate(d.date)}</td>
+                <td className="py-sm pr-md">
+                  <span className="font-mono">{d.instrument?.ticker || d.instrument?.isin}</span>
+                  <span className="ml-2 text-on-surface-variant text-[11px]">{d.instrument?.name}</span>
+                </td>
+                <td className="py-sm pr-md text-right">{Number(d.cantidad).toFixed(0)}</td>
+                <td className="py-sm pr-md text-right font-mono">
+                  {d.importe_bruto_eur ? fmtEs(Number(d.importe_bruto_eur)) : "-"}
+                </td>
+                <td className="py-sm pr-md text-right font-mono text-warning">
+                  {d.retencion_origen_eur ? (
+                    <span title={`${(Number(d.retencion_origen_pct) * 100).toFixed(0)}%`}>
+                      -{fmtEs(Number(d.retencion_origen_eur))}
+                    </span>
+                  ) : "-"}
+                </td>
+                <td className="py-sm pr-md text-right font-mono text-error">
+                  {d.retencion_esp_eur ? (
+                    <span title={`${(Number(d.retencion_esp_pct) * 100).toFixed(0)}%`}>
+                      -{fmtEs(Number(d.retencion_esp_eur))}
+                    </span>
+                  ) : "-"}
+                </td>
+                <td className="py-sm pr-md text-right font-mono font-semibold text-positive">
+                  {fmtEs(Number(d.importe_eur))}
+                </td>
                 <td className="py-sm text-right">{d.dividend_reinvested ? "Sí" : "No"}</td>
               </tr>
             ))}
@@ -318,8 +429,65 @@ function OperationsTab() {
     instrument_id: "", type: "BUY", cantidad: "", precio_unitario: "",
     divisa: "EUR", exchange_rate: "1", date: new Date().toISOString().split("T")[0],
     account_id: "", comentarios: "", is_recurring: false, recurring_period: "",
-    dividend_reinvested: false, new_ticker: "", new_name: "", new_type: "STOCK",
+    dividend_reinvested: false, new_ticker: "", new_name: "", new_type: "STOCK", new_isin: "",
   });
+  
+  // Autocomplete state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [lookupResults, setLookupResults] = useState<LookupResult[]>([]);
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const lookupRef = useRef<HTMLDivElement>(null);
+  const debouncedQuery = useDebounce(searchQuery, 400);
+  
+  // Form validation
+  const [validationError, setValidationError] = useState("");
+  
+  // Fetch lookup results
+  useEffect(() => {
+    if (debouncedQuery.length < 2) {
+      setLookupResults([]);
+      return;
+    }
+    
+    setLookupLoading(true);
+    fetch(`/api/investments/instruments/lookup?q=${encodeURIComponent(debouncedQuery)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setLookupResults(data.results || []);
+        setShowLookup(true);
+      })
+      .catch(() => setLookupResults([]))
+      .finally(() => setLookupLoading(false));
+  }, [debouncedQuery]);
+  
+  // Close lookup on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (lookupRef.current && !lookupRef.current.contains(e.target as Node)) {
+        setShowLookup(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  
+  // Select lookup result
+  const selectLookupResult = (result: LookupResult) => {
+    setForm({
+      ...form,
+      new_ticker: result.ticker,
+      new_name: result.name,
+      new_isin: result.isin || "",
+      new_type: result.type,
+      divisa: result.currency,
+      exchange_rate: result.exchange_rate?.toString() || "1",
+      precio_unitario: result.current_price?.toString() || form.precio_unitario,
+    });
+    setSearchQuery("");
+    setShowLookup(false);
+    setLookupResults([]);
+  };
 
   const fetchData = () => {
     fetch("/api/investments/transactions")
@@ -346,22 +514,41 @@ function OperationsTab() {
   };
 
   const submitOperation = async () => {
+    // Validate account_id is required for manual operations
+    if (!form.account_id) {
+      setValidationError("Debes seleccionar una cuenta bancaria para registrar la operación");
+      return;
+    }
+    
     let instrumentId = form.instrument_id;
 
     if (instrumentId === "__new__") {
+      // Validate at least ticker or isin
+      if (!form.new_ticker && !form.new_isin) {
+        setValidationError("Debes introducir al menos el ticker o el ISIN del instrumento");
+        return;
+      }
+      
       const res = await fetch("/api/investments/instruments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ticker: form.new_ticker,
+          ticker: form.new_ticker || null,
+          isin: form.new_isin || null,
           name: form.new_name,
           type: form.new_type,
           currency: form.divisa,
         }),
       });
       const created = await res.json();
+      if (!res.ok) {
+        setValidationError(created.error || "Error al crear instrumento");
+        return;
+      }
       instrumentId = created.id;
     }
+    
+    setValidationError("");
 
     await fetch("/api/investments/transactions", {
       method: "POST",
@@ -374,8 +561,9 @@ function OperationsTab() {
       instrument_id: "", type: "BUY", cantidad: "", precio_unitario: "",
       divisa: "EUR", exchange_rate: "1", date: new Date().toISOString().split("T")[0],
       account_id: "", comentarios: "", is_recurring: false, recurring_period: "",
-      dividend_reinvested: false, new_ticker: "", new_name: "", new_type: "STOCK",
+      dividend_reinvested: false, new_ticker: "", new_name: "", new_type: "STOCK", new_isin: "",
     });
+    setSearchQuery("");
     fetchData();
   };
 
@@ -421,6 +609,12 @@ function OperationsTab() {
       {showForm && (
         <section className="bg-surface-container border border-outline-variant p-lg rounded-xl space-y-md">
           <h3 className="text-body-md font-semibold text-on-surface">{t("investments.new_operation")}</h3>
+          
+          {validationError && (
+            <div className="bg-critical/10 border border-critical/30 text-critical px-md py-sm rounded-lg text-body-sm">
+              {validationError}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
             <div className="flex flex-col gap-sm">
@@ -447,10 +641,57 @@ function OperationsTab() {
 
             {form.instrument_id === "__new__" && (
               <>
+                <div className="flex flex-col gap-sm col-span-full">
+                  <label className="text-label-caps text-on-surface-variant">Buscar instrumento (Yahoo Finance)</label>
+                  <div className="relative" ref={lookupRef}>
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => lookupResults.length > 0 && setShowLookup(true)}
+                      className="bg-surface text-on-surface border border-outline-variant rounded-lg px-md py-sm text-body-sm w-full"
+                      placeholder="Buscar por ticker, ISIN o nombre..."
+                    />
+                    {lookupLoading && (
+                      <span className="absolute right-md top-1/2 -translate-y-1/2 text-body-sm text-on-surface-variant">...</span>
+                    )}
+                    {showLookup && lookupResults.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-surface border border-outline-variant rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {lookupResults.map((result, idx) => (
+                          <button
+                            key={`${result.ticker}-${idx}`}
+                            type="button"
+                            onClick={() => selectLookupResult(result)}
+                            className="w-full px-md py-sm text-left hover:bg-surface-container-low transition-colors border-b border-outline-variant/30 last:border-b-0"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-mono text-body-sm text-on-surface">{result.ticker}</span>
+                              <span className={`text-[10px] px-sm py-0.5 rounded ${result.source === "local" ? "bg-primary/10 text-primary" : "bg-tertiary/10 text-tertiary"}`}>
+                                {result.source === "local" ? "Local" : "Yahoo"}
+                              </span>
+                            </div>
+                            <div className="text-body-sm text-on-surface-variant truncate">{result.name}</div>
+                            <div className="flex gap-md text-[11px] text-on-surface-variant mt-0.5">
+                              <span>{result.type}</span>
+                              <span>{result.currency}</span>
+                              {result.current_price && <span>{result.current_price.toFixed(2)} {result.currency}</span>}
+                              {result.isin && <span>ISIN: {result.isin}</span>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div className="flex flex-col gap-sm">
-                  <label className="text-label-caps text-on-surface-variant">{t("investments.ticker")}</label>
+                  <label className="text-label-caps text-on-surface-variant">{t("investments.ticker")} *</label>
                   <input value={form.new_ticker} onChange={(e) => setForm({ ...form, new_ticker: e.target.value })}
                     className="bg-surface text-on-surface border border-outline-variant rounded-lg px-md py-sm text-body-sm" placeholder="AAPL" />
+                </div>
+                <div className="flex flex-col gap-sm">
+                  <label className="text-label-caps text-on-surface-variant">ISIN *</label>
+                  <input value={form.new_isin} onChange={(e) => setForm({ ...form, new_isin: e.target.value })}
+                    className="bg-surface text-on-surface border border-outline-variant rounded-lg px-md py-sm text-body-sm" placeholder="US0378331005" />
+                  <span className="text-[10px] text-on-surface-variant">* Al menos ticker o ISIN requerido</span>
                 </div>
                 <div className="flex flex-col gap-sm">
                   <label className="text-label-caps text-on-surface-variant">{t("investments.name")}</label>
@@ -463,7 +704,9 @@ function OperationsTab() {
                     className="bg-surface text-on-surface border border-outline-variant rounded-lg px-md py-sm text-body-sm">
                     <option value="STOCK">Stock</option>
                     <option value="ETF">ETF</option>
+                    <option value="ETC">ETC</option>
                     <option value="FUND">Fund</option>
+                    <option value="RIGHT">Derechos</option>
                   </select>
                 </div>
               </>
@@ -500,10 +743,10 @@ function OperationsTab() {
             </div>
 
             <div className="flex flex-col gap-sm">
-              <label className="text-label-caps text-on-surface-variant">{t("investments.bank_select") || "Cuenta Bancaria"}</label>
-              <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-                className="bg-surface text-on-surface border border-outline-variant rounded-lg px-md py-sm text-body-sm">
-                <option value="">Sin cuenta</option>
+              <label className="text-label-caps text-on-surface-variant">{t("investments.bank_select") || "Cuenta Bancaria"} *</label>
+              <select value={form.account_id} onChange={(e) => { setForm({ ...form, account_id: e.target.value }); setValidationError(""); }}
+                className={`bg-surface text-on-surface border rounded-lg px-md py-sm text-body-sm ${!form.account_id && validationError ? "border-critical" : "border-outline-variant"}`}>
+                <option value="">-- Selecciona cuenta --</option>
                 {accounts.map((a: any) => (
                   <option key={a.id} value={a.id}>{a.account_label || a.iban}</option>
                 ))}
@@ -570,7 +813,7 @@ function OperationsTab() {
           <tbody>
             {transactions.map((tx: any) => (
               <tr key={tx.id} className="border-t border-outline-variant/50">
-                <td className="py-sm px-md">{new Date(tx.date).toLocaleDateString("es")}</td>
+                <td className="py-sm px-md">{fmtDate(tx.date)}</td>
                 <td className="py-sm pr-md font-mono">{tx.instrument?.ticker}</td>
                 <td className="py-sm pr-md">
                   <span className={`px-sm py-0.5 rounded text-[11px] font-medium ${

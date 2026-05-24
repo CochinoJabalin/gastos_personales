@@ -8,12 +8,13 @@ export async function POST() {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const instruments = await prisma.investmentInstrument.findMany({
-    where: { ticker: { not: "" } },
+    where: { ticker: { not: null } },
   });
 
   const results: { ticker: string; success: boolean; price?: number; error?: string }[] = [];
 
   for (const inst of instruments) {
+    if (!inst.ticker) continue;
     try {
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${inst.ticker}?interval=1d&range=1d`;
       const res = await fetch(url);

@@ -16,7 +16,9 @@ export async function GET() {
     orderBy: { updated_at: "desc" },
   });
 
-  const enriched = holdings.map((h) => {
+  const enriched = holdings
+    .filter((h) => Number(h.total_cantidad) > 0)
+    .map((h) => {
     const precio_actual = Number(h.instrument.current_price ?? 0);
     const exchange = Number(h.instrument.exchange_rate_to_eur ?? 1);
     const totalCantidad = Number(h.total_cantidad);
