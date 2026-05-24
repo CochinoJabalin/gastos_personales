@@ -27,7 +27,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: "variable-expense", x: 6, y: 15, w: 6, h: 4 },
     { i: "projection", x: 0, y: 19, w: 6, h: 6 },
     { i: "financial-health", x: 6, y: 19, w: 6, h: 6 },
-    { i: "investments", x: 0, y: 25, w: 12, h: 6 },
+    { i: "investments", x: 0, y: 25, w: 12, h: 10 },
   ],
   md: [
     { i: "balance", x: 0, y: 0, w: 4, h: 4 },
@@ -41,7 +41,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: "variable-expense", x: 6, y: 15, w: 6, h: 4 },
     { i: "projection", x: 0, y: 19, w: 6, h: 6 },
     { i: "financial-health", x: 6, y: 19, w: 6, h: 6 },
-    { i: "investments", x: 0, y: 25, w: 12, h: 6 },
+    { i: "investments", x: 0, y: 25, w: 12, h: 10 },
   ],
   sm: [
     { i: "balance", x: 0, y: 0, w: 12, h: 4 },
@@ -55,7 +55,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: "variable-expense", x: 0, y: 38, w: 12, h: 4 },
     { i: "projection", x: 0, y: 42, w: 12, h: 6 },
     { i: "financial-health", x: 0, y: 48, w: 12, h: 6 },
-    { i: "investments", x: 0, y: 54, w: 12, h: 6 },
+    { i: "investments", x: 0, y: 54, w: 12, h: 10 },
   ],
 };
 
