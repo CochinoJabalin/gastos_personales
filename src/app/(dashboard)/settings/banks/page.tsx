@@ -75,6 +75,13 @@ export default function BanksSettingsPage() {
 
   // Recalculate bank balances from accounts
   const [recalculating, setRecalculating] = useState(false);
+  const [redondeoConfig, setRedondeoConfig] = useState<{ enabled: boolean; target_account_id: string; multiplier: number } | null>(null);
+  const [redondeoAccounts, setRedondeoAccounts] = useState<Account[]>([]);
+  const [redondeoEnabled, setRedondeoEnabled] = useState(false);
+  const [redondeoTargetId, setRedondeoTargetId] = useState("");
+  const [redondeoMultiplier, setRedondeoMultiplier] = useState(5);
+  const [redondeoSaving, setRedondeoSaving] = useState(false);
+  const [redondeoSaved, setRedondeoSaved] = useState(false);
 
   function fetchBanks() {
     setLoading(true);
@@ -83,6 +90,33 @@ export default function BanksSettingsPage() {
       .then(setBanks)
       .catch(() => {})
       .finally(() => setLoading(false));
+    fetch("/api/redondeo/config")
+      .then((r) => r.json())
+      .then((data) => {
+        setRedondeoConfig(data.config);
+        setRedondeoEnabled(data.config.enabled);
+        setRedondeoTargetId(data.config.target_account_id);
+        setRedondeoMultiplier(data.config.multiplier);
+        setRedondeoAccounts(data.accounts || []);
+      })
+      .catch(() => {});
+  }
+
+  async function saveRedondeoConfig() {
+    setRedondeoSaving(true);
+    setRedondeoSaved(false);
+    const res = await fetch("/api/redondeo/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: redondeoTargetId !== "", target_account_id: redondeoTargetId, multiplier: redondeoMultiplier }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setRedondeoConfig(data.config);
+      setRedondeoSaved(true);
+      setTimeout(() => setRedondeoSaved(false), 2000);
+    }
+    setRedondeoSaving(false);
   }
 
   useEffect(() => { fetchBanks(); }, []);
@@ -303,16 +337,47 @@ export default function BanksSettingsPage() {
           banks.map((b) => (
             <div key={b.id} className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
               {/* Bank Header */}
-              <div className="p-lg pb-0 flex items-center justify-between">
-                <div className="flex items-center gap-md">
-                  <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
-                    <span className="material-symbols-outlined text-on-primary-container">account_balance</span>
-                  </div>
-                  <div>
+              <div className="p-lg pb-md">
+                <div className="flex items-center justify-between gap-md">
+                  <div className="flex items-center gap-md">
+                    <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-on-primary-container">account_balance</span>
+                    </div>
                     <p className="text-body-md font-semibold text-on-surface">{b.bank_name}</p>
+                    
+                    {b.bank_name === "Revolut" && (
+                      <div className="flex items-center gap-sm ml-md pl-md border-l border-outline-variant">
+                        <span className="material-symbols-outlined text-sm text-tertiary">currency_exchange</span>
+                        <select
+                          value={redondeoTargetId}
+                          onChange={(e) => setRedondeoTargetId(e.target.value)}
+                          className="bg-surface-container-lowest rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant focus:border-primary focus:outline-none"
+                        >
+                          <option value="">Destino...</option>
+                          {redondeoAccounts.filter((a) => !a.is_default).map((acc) => (
+                            <option key={acc.id} value={acc.id}>{acc.account_label}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={redondeoMultiplier}
+                          onChange={(e) => setRedondeoMultiplier(parseInt(e.target.value) || 5)}
+                          className="bg-surface-container-lowest rounded px-2 py-1 text-body-sm text-on-surface border border-outline-variant focus:border-primary focus:outline-none w-16"
+                        >
+                          {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                            <option key={n} value={n}>×{n}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={saveRedondeoConfig}
+                          disabled={redondeoSaving}
+                          className="bg-primary text-primary-on px-2 py-1 rounded text-[11px] hover:opacity-90 disabled:opacity-50"
+                        >
+                          {redondeoSaving ? "..." : "Guardar"}
+                        </button>
+                        {redondeoSaved && <span className="text-body-sm text-success">OK</span>}
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-sm">
                   <p className={`text-data-mono font-mono ${b.balance >= 0 ? "text-success" : "text-error"}`}>
                     <ValueBlur hidden={hideValues}>{formatSpanish(b.balance)}€</ValueBlur>
                   </p>
@@ -359,6 +424,9 @@ export default function BanksSettingsPage() {
                               <p className="text-body-sm font-semibold text-on-surface">{acc.account_label}</p>
                               {acc.is_default && (
                                 <span className="bg-primary-container text-on-primary-container text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">Default</span>
+                              )}
+                              {redondeoConfig?.enabled && redondeoConfig.target_account_id === acc.id && (
+                                <span className="material-symbols-outlined text-sm text-tertiary">currency_exchange</span>
                               )}
                             </div>
                             {acc.iban && <p className="text-label-xs text-on-surface-variant/60 font-mono">{formatIBAN(acc.iban)}</p>}

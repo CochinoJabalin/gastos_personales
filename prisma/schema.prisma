@@ -130,6 +130,7 @@ model TransferExecution {
   transfer              Transfer  @relation(fields: [transfer_id], references: [id], onDelete: Cascade)
   
   executed_at           DateTime  @default(now())
+  scheduled_for         DateTime? // Date when this execution is scheduled (null for completed executions)
   amount                Float     // Amount actually transferred
   
   from_balance_before   Float     // Source account balance before transfer
@@ -137,7 +138,7 @@ model TransferExecution {
   to_balance_before     Float     // Destination account balance before transfer
   to_balance_after      Float     // Destination account balance after transfer
   
-  status                String    @default("completed") // completed | failed
+  status                String    @default("completed") // completed | failed | scheduled
   error_message         String?   // If failed, store error message
 }
 
@@ -269,6 +270,17 @@ model AutoTopupConfig {
   enabled            Boolean  @default(true)
   lastCheck          DateTime?
   updatedAt          DateTime @updatedAt
+}
+
+model RedondeoConfig {
+  id                String    @id @default(uuid())
+  enabled           Boolean   @default(false)
+  target_account_id String
+  multiplier        Int       @default(5)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@map("RedondeoConfig")
 }
 
 model AppConfig {
