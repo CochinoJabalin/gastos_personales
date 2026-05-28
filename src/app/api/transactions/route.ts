@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseSpanishNumber, applySign } from "@/lib/format";
+import { verifyAuth } from "@/lib/api-auth";
+import { processRedondeo } from "@/lib/redondeo";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get("page") || "1");
@@ -23,7 +23,12 @@ export async function GET(request: NextRequest) {
   const income = searchParams.get("income") === "true";
 
   const where: Record<string, unknown> = {};
-  if (group) where.group = group;
+  // Exclude transfers from operations list by default (unless specifically filtering by group)
+  if (group) {
+    where.group = group;
+  } else {
+    where.group = { not: "Transferencia" };
+  }
   if (bank_id) where.bank_id = bank_id;
   if (type) where.type = type;
   if (concept) where.concept = { contains: concept, mode: "insensitive" };
@@ -70,10 +75,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const body = await request.json();
+  const comentarios = auth.method === "api-token"
+    ? ("[API]" + (body.comentarios ? " " + body.comentarios : "")).trim()
+    : (body.comentarios || null);
 
   let amount = typeof body.amount === "number" ? body.amount : parseSpanishNumber(body.amount);
   amount = applySign(amount, body.group);
@@ -98,7 +106,7 @@ export async function POST(request: NextRequest) {
       is_recurring: body.is_recurring || false,
       recurring_period: body.recurring_period || null,
       timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
-      comentarios: body.comentarios || null,
+      comentarios,
     },
     include: { bank: true, account: true },
   });
@@ -116,6 +124,9 @@ export async function POST(request: NextRequest) {
     where: { id: body.bank_id },
     data: { balance: { increment: amount } },
   });
+
+  // Process redondeo for expenses on Revolut default account
+  await processRedondeo(amount, body.bank_id, accountId);
 
   return NextResponse.json(transaction, { status: 201 });
 }

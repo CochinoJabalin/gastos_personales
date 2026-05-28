@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateIBAN } from "@/lib/iban";
+import { verifyAuth } from "@/lib/api-auth";
 
 async function ensureAccountsExist(banks: Awaited<ReturnType<typeof prisma.bank.findMany>>) {
   for (const bank of banks) {
@@ -23,9 +24,9 @@ async function ensureAccountsExist(banks: Awaited<ReturnType<typeof prisma.bank.
   }
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+export async function GET(request: NextRequest) {
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const banks = await prisma.bank.findMany({
     orderBy: { bank_name: "asc" },

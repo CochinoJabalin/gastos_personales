@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await verifyAuth(request);
+  if (!auth.authenticated) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const { concept } = await request.json();
   if (!concept) {

@@ -15,7 +15,12 @@ export async function GET(request: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (type) where.type = type;
-  if (category) where.group = { contains: category, mode: "insensitive" };
+  if (category) {
+    where.group = { contains: category, mode: "insensitive" };
+  } else {
+    // Exclude transfers from the groups list
+    where.group = { not: "Transferencia" };
+  }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

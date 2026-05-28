@@ -33,6 +33,7 @@ services:
       TOPUP_TARGET_BANK: ${TOPUP_TARGET_BANK:-Revolut}
       TOPUP_THRESHOLD: ${TOPUP_THRESHOLD:-100}
       TOPUP_AMOUNT: ${TOPUP_AMOUNT:-200}
+      API_TOKEN: ${API_TOKEN:-}
 
 volumes:
   pgdata:
