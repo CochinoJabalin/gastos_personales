@@ -47,6 +47,7 @@ interface TransferExecution {
   id: string;
   transfer_id: string;
   executed_at: string;
+  scheduled_for: string | null;
   amount: number;
   from_balance_before: number;
   from_balance_after: number;
@@ -95,6 +96,7 @@ export default function TransfersPage() {
   const [editingTopup, setEditingTopup] = useState(false);
   const [topupSaving, setTopupSaving] = useState(false);
   const [topupSaved, setTopupSaved] = useState(false);
+  const [topupExecuting, setTopupExecuting] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -162,6 +164,26 @@ export default function TransfersPage() {
       }
     } finally {
       setTopupSaving(false);
+    }
+  }
+
+  async function handleExecuteTopup() {
+    if (!autoTopup?.enabled) return;
+    setTopupExecuting(true);
+    try {
+      const res = await fetch("/api/auto-topup/execute", { method: "POST" });
+      if (res.ok) {
+        fetchTransfers();
+        fetchExecutions();
+        fetchAutoTopupConfig();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Error al ejecutar el Auto-Topup");
+      }
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setTopupExecuting(false);
     }
   }
 
@@ -559,12 +581,22 @@ export default function TransfersPage() {
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => setEditingTopup(true)}
-                            className="px-2 py-1 bg-primary text-primary-on text-label-caps rounded-md hover:opacity-90 transition-opacity"
-                          >
-                            Modificar
-                          </button>
+                          <>
+                            <button
+                              onClick={handleExecuteTopup}
+                              disabled={topupExecuting || !autoTopup.enabled}
+                              className="px-2 py-1 bg-primary text-primary-on text-label-caps rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
+                              title="Ejecutar transferencia ahora"
+                            >
+                              {topupExecuting ? "..." : "Ejecutar"}
+                            </button>
+                            <button
+                              onClick={() => setEditingTopup(true)}
+                              className="px-2 py-1 bg-surface-container-high text-on-surface text-label-caps rounded-md hover:bg-surface-container-highest transition-colors border border-outline-variant"
+                            >
+                              Modificar
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={async () => {
@@ -690,9 +722,9 @@ export default function TransfersPage() {
           </div>
         </div>
 
-        {/* Historial de ejecuciones - últimos 2 meses */}
+        {/* Historial de ejecuciones - últimos 2 meses + programadas */}
         <div className="mt-lg">
-          <h3 className="text-headline-sm text-on-surface mb-md">Historial de Ejecuciones (últimos 2 meses)</h3>
+          <h3 className="text-headline-sm text-on-surface mb-md">Historial de Ejecuciones (últimos 2 meses + programadas)</h3>
           <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden w-full">
             <div className="overflow-x-auto">
               <table className="text-left w-full min-w-max">
@@ -702,88 +734,107 @@ export default function TransfersPage() {
                     <th className="p-md whitespace-nowrap">Origen</th>
                     <th className="p-md whitespace-nowrap">Destino</th>
                     <th className="p-md whitespace-nowrap">Importe</th>
-                    <th className="p-md whitespace-nowrap">Saldo Origen (Antes)</th>
-                    <th className="p-md whitespace-nowrap">Saldo Origen (Después)</th>
                     <th className="p-md whitespace-nowrap">Saldo Destino (Antes)</th>
-                    <th className="p-md whitespace-nowrap">Saldo Destino (Después)</th>
+                    <th className="p-md whitespace-nowrap">Saldo Destino</th>
                     <th className="p-md whitespace-nowrap">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
                   {executions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-lg text-center text-on-surface-variant text-body-sm">
-                        No hay ejecuciones registradas en los últimos 2 meses
+                        <td colSpan={7} className="p-lg text-center text-on-surface-variant text-body-sm">
+                        No hay ejecuciones registradas
                       </td>
                     </tr>
                   ) : (
-                    executions.map((exec) => (
-                      <tr key={exec.id} className="hover:bg-surface-container-low transition-colors">
-                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                          {fmtDate(exec.executed_at)}{" "}
-                          <span className="text-on-surface-variant">
-                            {new Date(exec.executed_at).toLocaleTimeString("es", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </td>
-                        {exec.is_interest_payment ? (
-                          <td colSpan={2} className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                            <span className="flex items-center gap-xs text-positive">
-                              <span className="material-symbols-outlined text-sm">savings</span>
-                              Rendimientos — {exec.from_account.bank_name} - {exec.from_account.account_label}
+                    executions.map((exec) => {
+                      const isScheduled = exec.status === "scheduled";
+                      const displayDate = isScheduled && exec.scheduled_for ? exec.scheduled_for : exec.executed_at;
+                      
+                      return (
+                        <tr 
+                          key={exec.id} 
+                          className={`transition-colors ${
+                            isScheduled 
+                              ? "bg-surface-container-low/50 hover:bg-surface-container-low" 
+                              : "hover:bg-surface-container-low"
+                          }`}
+                        >
+                          <td className="p-md text-body-sm whitespace-nowrap">
+                            <span className={isScheduled ? "text-on-surface-variant" : "text-on-surface"}>
+                              {fmtDate(displayDate)}
+                            </span>{" "}
+                            <span className="text-on-surface-variant">
+                              {new Date(displayDate).toLocaleTimeString("es", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </span>
+                            {isScheduled && (
+                              <span className="ml-1 text-xs text-on-surface-variant">(prog.)</span>
+                            )}
                           </td>
-                        ) : (
-                          <>
-                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                              {exec.from_account.bank_name} - {exec.from_account.account_label}
+                          {exec.is_interest_payment ? (
+                            <td colSpan={2} className="p-md text-body-sm whitespace-nowrap">
+                              <span className={`flex items-center gap-xs ${isScheduled ? "text-positive/70" : "text-positive"}`}>
+                                <span className="material-symbols-outlined text-sm">savings</span>
+                                Rendimientos — {exec.from_account.bank_name} - {exec.from_account.account_label}
+                              </span>
                             </td>
-                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                              {exec.to_account.bank_name} - {exec.to_account.account_label}
-                            </td>
-                          </>
-                        )}
-                        <td className="p-md text-body-sm text-on-surface font-medium whitespace-nowrap">
-                          <ValueBlur hidden={hideValues}>
-                            {exec.is_interest_payment ? "+" : ""}{fmtEs(exec.amount, 2)} €
-                          </ValueBlur>
-                        </td>
-                        <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                          <ValueBlur hidden={hideValues}>{fmtEs(exec.from_balance_before, 2)} €</ValueBlur>
-                        </td>
-                        <td className="p-md text-body-sm whitespace-nowrap">
-                          <ValueBlur hidden={hideValues}>
-                            <span className={exec.is_interest_payment ? "text-positive" : "text-error"}>
-                              {fmtEs(exec.from_balance_after, 2)} €
-                            </span>
-                          </ValueBlur>
-                        </td>
-                        {exec.is_interest_payment ? (
-                          <td colSpan={2} className="p-md text-body-sm text-on-surface-variant text-center whitespace-nowrap">
-                            —
-                          </td>
-                        ) : (
-                          <>
-                            <td className="p-md text-body-sm text-on-surface whitespace-nowrap">
-                              <ValueBlur hidden={hideValues}>{fmtEs(exec.to_balance_before, 2)} €</ValueBlur>
-                            </td>
-                            <td className="p-md text-body-sm whitespace-nowrap">
+                          ) : (
+                            <>
+                              <td className={`p-md text-body-sm whitespace-nowrap ${isScheduled ? "text-on-surface-variant" : "text-on-surface"}`}>
+                                {exec.from_account.bank_name} - {exec.from_account.account_label}
+                              </td>
+                              <td className={`p-md text-body-sm whitespace-nowrap ${isScheduled ? "text-on-surface-variant" : "text-on-surface"}`}>
+                                {exec.to_account.bank_name} - {exec.to_account.account_label}
+                              </td>
+                            </>
+                          )}
+                          <td className={`p-md text-body-sm font-medium whitespace-nowrap ${isScheduled ? "text-on-surface-variant" : "text-on-surface"}`}>
+                            {isScheduled ? "—" : (
                               <ValueBlur hidden={hideValues}>
-                                <span className="text-positive">{fmtEs(exec.to_balance_after, 2)} €</span>
+                                {exec.is_interest_payment ? "+" : ""}{fmtEs(exec.amount, 2)} €
                               </ValueBlur>
-                            </td>
-                          </>
-                        )}
-                        <td className="p-md whitespace-nowrap">
-                          <ConditionalChip
-                            label={exec.status === "completed" ? "Completada" : "Error"}
-                            variant={exec.status === "completed" ? "success" : "critical"}
-                          />
-                        </td>
-                      </tr>
-                    ))
+                            )}
+                          </td>
+                          <td className="p-md text-body-sm text-on-surface-variant text-center whitespace-nowrap">
+                            {isScheduled ? "—" : (
+                              <ValueBlur hidden={hideValues}>{fmtEs(exec.to_balance_before, 2)} €</ValueBlur>
+                            )}
+                          </td>
+                          <td className="p-md text-body-sm text-center whitespace-nowrap">
+                            {isScheduled ? (
+                              <span className="text-on-surface-variant">—</span>
+                            ) : (
+                              <ValueBlur hidden={hideValues}>
+                                <span className="text-positive">
+                                  {fmtEs(exec.to_balance_after, 2)} €
+                                </span>
+                              </ValueBlur>
+                            )}
+                          </td>
+                          <td className="p-md whitespace-nowrap">
+                            <ConditionalChip
+                              label={
+                                exec.status === "completed" 
+                                  ? "Completada" 
+                                  : exec.status === "scheduled" 
+                                    ? "Programada" 
+                                    : "Error"
+                              }
+                              variant={
+                                exec.status === "completed" 
+                                  ? "success" 
+                                  : exec.status === "scheduled" 
+                                    ? "info" 
+                                    : "critical"
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

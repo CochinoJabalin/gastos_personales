@@ -32,7 +32,8 @@ class TransferScheduler {
     try {
       const now = new Date();
 
-      const pending = await prisma.transfer.findMany({
+      // Find all transfers whose next_run has passed (catch-up support)
+      let pending = await prisma.transfer.findMany({
         where: {
           enabled: true,
           status: "pending",
@@ -40,13 +41,26 @@ class TransferScheduler {
         },
       });
 
-      for (const transfer of pending) {
-        try {
-          await executeTransfer(transfer.id);
-          console.log(`[TransferScheduler] Executed transfer ${transfer.id}`);
-        } catch (err) {
-          console.error(`[TransferScheduler] Error executing transfer ${transfer.id}:`, err);
+      // Process in a loop to handle catch-up (missed executions)
+      while (pending.length > 0) {
+        for (const transfer of pending) {
+          try {
+            await executeTransfer(transfer.id);
+            console.log(`[TransferScheduler] Executed transfer ${transfer.id} (next_run was ${transfer.next_run?.toISOString()})`);
+          } catch (err) {
+            console.error(`[TransferScheduler] Error executing transfer ${transfer.id}:`, err);
+          }
         }
+
+        // Re-fetch: after execution, if next_run was advanced but is still in the past,
+        // we need to execute again (catch-up for missed days/months)
+        pending = await prisma.transfer.findMany({
+          where: {
+            enabled: true,
+            status: "pending",
+            next_run: { lte: now },
+          },
+        });
       }
     } catch (err) {
       console.error("[TransferScheduler] Error processing pending:", err);

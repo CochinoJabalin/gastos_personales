@@ -11,23 +11,29 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const months = parseInt(searchParams.get("months") || "2");
-  const limit = parseInt(searchParams.get("limit") || "100");
+  const completedLimit = parseInt(searchParams.get("limit") || searchParams.get("completed_limit") || "5");
   const transferId = searchParams.get("transfer_id");
+  const includeScheduled = searchParams.get("include_scheduled") !== "false"; // Default true
 
-  // Calculate date range (last N months)
+  // Calculate date range (last N months for completed, +3 months for scheduled)
   const fromDate = new Date();
   fromDate.setMonth(fromDate.getMonth() - months);
 
-  const where: Record<string, unknown> = {
+  const toDateScheduled = new Date();
+  toDateScheduled.setMonth(toDateScheduled.getMonth() + 3);
+
+  // Fetch completed executions (limited to completedLimit)
+  let completedWhere: Record<string, unknown> = {
+    status: { in: ["completed", "failed"] },
     executed_at: { gte: fromDate },
   };
 
   if (transferId) {
-    where.transfer_id = transferId;
+    completedWhere.transfer_id = transferId;
   }
 
-  const executions = await prisma.transferExecution.findMany({
-    where,
+  const completedExecutions = await prisma.transferExecution.findMany({
+    where: completedWhere,
     include: {
       transfer: {
         include: {
@@ -45,14 +51,52 @@ export async function GET(request: NextRequest) {
       },
     },
     orderBy: { executed_at: "desc" },
-    take: limit,
+    take: completedLimit,
   });
 
-  // Transform data for frontend
-  const data = executions.map((exec) => ({
+  // Fetch scheduled executions (all of them for the next 3 months)
+  let scheduledExecutions: typeof completedExecutions = [];
+  
+  if (includeScheduled) {
+    let scheduledWhere: Record<string, unknown> = {
+      status: "scheduled",
+      scheduled_for: { lte: toDateScheduled },
+    };
+
+    if (transferId) {
+      scheduledWhere.transfer_id = transferId;
+    }
+
+    scheduledExecutions = await prisma.transferExecution.findMany({
+      where: scheduledWhere,
+      include: {
+        transfer: {
+          include: {
+            from_account: {
+              include: {
+                bank: { select: { bank_name: true } },
+              },
+            },
+            to_account: {
+              include: {
+                bank: { select: { bank_name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { scheduled_for: "asc" },
+    });
+  }
+
+  // Combine and transform data for frontend
+  const allExecutions = [...completedExecutions, ...scheduledExecutions];
+  
+  const data = allExecutions.map((exec) => ({
     id: exec.id,
     transfer_id: exec.transfer_id,
     executed_at: exec.executed_at.toISOString(),
+    scheduled_for: exec.scheduled_for?.toISOString() || null,
     amount: Number(exec.amount),
     from_balance_before: Number(exec.from_balance_before),
     from_balance_after: Number(exec.from_balance_after),
@@ -76,6 +120,13 @@ export async function GET(request: NextRequest) {
     is_scheduled: exec.transfer.is_scheduled,
     frequency: exec.transfer.frequency,
   }));
+
+  // Sort by effective date ascending (oldest first / nearest scheduled first)
+  data.sort((a, b) => {
+    const dateA = a.status === "scheduled" && a.scheduled_for ? new Date(a.scheduled_for) : new Date(a.executed_at);
+    const dateB = b.status === "scheduled" && b.scheduled_for ? new Date(b.scheduled_for) : new Date(b.executed_at);
+    return dateA.getTime() - dateB.getTime();
+  });
 
   return NextResponse.json({
     data,

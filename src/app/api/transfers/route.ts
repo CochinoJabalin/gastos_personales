@@ -5,7 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { transferScheduler } from "@/lib/transfer-scheduler";
 import { autoTopupManager } from "@/lib/auto-topup";
 import { interestScheduler } from "@/lib/interest-scheduler";
-import { executeTransfer } from "@/lib/transfer-utils";
+import {
+  executeTransfer,
+  calculateFirstMonthlyRun,
+  generateScheduledExecutions,
+} from "@/lib/transfer-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -97,9 +101,15 @@ export async function POST(request: NextRequest) {
   const isFutureDate = transferTimestamp > now;
   const effectiveScheduled = is_scheduled || isFutureDate;
 
+  // Calculate next_run based on frequency
   let nextRun: Date | null = null;
   if (effectiveScheduled) {
-    nextRun = transferTimestamp;
+    if (frequency === "mensual") {
+      // For monthly transfers, always use day 01 of the next applicable month
+      nextRun = calculateFirstMonthlyRun(transferTimestamp);
+    } else {
+      nextRun = transferTimestamp;
+    }
   }
 
   const transfer = await prisma.transfer.create({
@@ -137,6 +147,11 @@ export async function POST(request: NextRequest) {
 
   // Register in scheduler
   transferScheduler.register(transfer.id);
+
+  // Generate scheduled executions for the next 3 periods (all frequencies)
+  if (frequency) {
+    await generateScheduledExecutions(transfer.id, 3);
+  }
 
   return NextResponse.json(transfer, { status: 201 });
 }
