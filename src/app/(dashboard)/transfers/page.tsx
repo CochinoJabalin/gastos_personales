@@ -124,7 +124,7 @@ export default function TransfersPage() {
 
   async function fetchExecutions() {
     try {
-      const res = await fetch("/api/transfers/executions?completed_limit=5&include_scheduled=true");
+      const res = await fetch("/api/transfers/executions?completed_limit=5&scheduled_limit=5");
       const data = await res.json();
       setExecutions(data.data || []);
     } catch {}
