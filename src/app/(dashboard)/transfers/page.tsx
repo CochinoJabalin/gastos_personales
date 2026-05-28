@@ -614,7 +614,7 @@ export default function TransfersPage() {
                               onClick={() => setEditingTopup(true)}
                               className="px-2 py-1 bg-surface-container-high text-on-surface text-label-caps rounded-md hover:bg-surface-container-highest transition-colors border border-outline-variant"
                             >
-                              Modificar
+                              Editar
                             </button>
                           </>
                         )}
