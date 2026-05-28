@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const months = parseInt(searchParams.get("months") || "2");
   const completedLimit = parseInt(searchParams.get("limit") || searchParams.get("completed_limit") || "5");
+  const scheduledLimit = parseInt(searchParams.get("scheduled_limit") || "5");
   const transferId = searchParams.get("transfer_id");
   const includeScheduled = searchParams.get("include_scheduled") !== "false"; // Default true
 
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
   let completedWhere: Record<string, unknown> = {
     status: { in: ["completed", "failed"] },
     executed_at: { gte: fromDate },
+    amount: { not: 0 },
   };
 
   if (transferId) {
@@ -61,6 +63,7 @@ export async function GET(request: NextRequest) {
     let scheduledWhere: Record<string, unknown> = {
       status: "scheduled",
       scheduled_for: { lte: toDateScheduled },
+      amount: { not: 0 },
     };
 
     if (transferId) {
@@ -86,6 +89,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { scheduled_for: "asc" },
+      take: scheduledLimit,
     });
   }
 
