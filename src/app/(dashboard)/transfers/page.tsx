@@ -124,7 +124,7 @@ export default function TransfersPage() {
 
   async function fetchExecutions() {
     try {
-      const res = await fetch("/api/transfers/executions?months=2&limit=100");
+      const res = await fetch("/api/transfers/executions?completed_limit=5&include_scheduled=true");
       const data = await res.json();
       setExecutions(data.data || []);
     } catch {}
@@ -744,7 +744,7 @@ export default function TransfersPage() {
 
         {/* Historial de ejecuciones - últimos 2 meses + programadas */}
         <div className="mt-lg">
-          <h3 className="text-headline-sm text-on-surface mb-md">Historial de Ejecuciones (últimos 2 meses + programadas)</h3>
+          <h3 className="text-headline-sm text-on-surface mb-md">Historial de Ejecuciones (últimas 5 + próximas 5)</h3>
           <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden w-full">
             <div className="overflow-x-auto">
               <table className="text-left w-full min-w-max">
@@ -763,7 +763,7 @@ export default function TransfersPage() {
                   {executions.length === 0 ? (
                     <tr>
                         <td colSpan={7} className="p-lg text-center text-on-surface-variant text-body-sm">
-                        No hay ejecuciones registradas
+                        No hay ejecuciones
                       </td>
                     </tr>
                   ) : (
