@@ -961,16 +961,16 @@ export default function TransactionsPage() {
                           <ValueBlur hidden={hideValues}>{formatSpanish(Math.abs(Number(t.amount)))}€</ValueBlur>
                         </td>
                         <td className="p-md">
-                          <div className="flex gap-2">
+                          <div className="flex gap-1.5">
                             <button
                               onClick={() => startEdit(t)}
-                              className="text-primary hover:underline text-body-sm"
+                              className="px-2 py-1 bg-surface-container-high text-on-surface text-label-caps rounded-md hover:bg-surface-container-highest transition-colors border border-outline-variant"
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => deleteTransaction(t.id)}
-                              className="text-error hover:underline text-body-sm"
+                              className="px-2 py-1 text-label-caps rounded-md border border-error text-error hover:bg-error/10 transition-colors"
                             >
                               Eliminar
                             </button>
