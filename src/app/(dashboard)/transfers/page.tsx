@@ -97,6 +97,7 @@ export default function TransfersPage() {
   const [topupSaving, setTopupSaving] = useState(false);
   const [topupSaved, setTopupSaved] = useState(false);
   const [topupExecuting, setTopupExecuting] = useState(false);
+  const [reversingId, setReversingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -164,6 +165,25 @@ export default function TransfersPage() {
       }
     } finally {
       setTopupSaving(false);
+    }
+  }
+
+  async function handleReverseExecution(execId: string) {
+    if (!confirm("¿Revertir esta transferencia? Se ajustarán los balances de origen y destino.")) return;
+    setReversingId(execId);
+    try {
+      const res = await fetch(`/api/transfers/executions/${execId}/reverse`, { method: "POST" });
+      if (res.ok) {
+        fetchExecutions();
+        fetchTransfers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Error al revertir");
+      }
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setReversingId(null);
     }
   }
 
@@ -815,22 +835,38 @@ export default function TransfersPage() {
                             )}
                           </td>
                           <td className="p-md whitespace-nowrap">
-                            <ConditionalChip
-                              label={
-                                exec.status === "completed" 
-                                  ? "Completada" 
-                                  : exec.status === "scheduled" 
-                                    ? "Programada" 
-                                    : "Error"
-                              }
-                              variant={
-                                exec.status === "completed" 
-                                  ? "success" 
-                                  : exec.status === "scheduled" 
-                                    ? "info" 
-                                    : "critical"
-                              }
-                            />
+                            <div className="flex items-center gap-1">
+                              <ConditionalChip
+                                label={
+                                  exec.status === "completed" 
+                                    ? "Completada" 
+                                    : exec.status === "scheduled" 
+                                      ? "Programada" 
+                                      : exec.status === "reversed"
+                                        ? "Revertida"
+                                        : "Error"
+                                }
+                                variant={
+                                  exec.status === "completed" 
+                                    ? "success" 
+                                    : exec.status === "scheduled" 
+                                      ? "info" 
+                                      : exec.status === "reversed"
+                                        ? "warning"
+                                        : "critical"
+                                }
+                              />
+                              {exec.status === "completed" && (
+                                <button
+                                  onClick={() => handleReverseExecution(exec.id)}
+                                  disabled={reversingId === exec.id}
+                                  className="p-1 rounded hover:bg-error/10 text-error disabled:opacity-30 transition-colors"
+                                  title="Revertir transferencia"
+                                >
+                                  <span className="material-symbols-outlined text-sm">undo</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
