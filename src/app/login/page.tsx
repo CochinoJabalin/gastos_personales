@@ -2,30 +2,11 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [autoLogging, setAutoLogging] = useState(true);
-
-  useEffect(() => {
-    async function autoLogin() {
-      const result = await signIn("credentials", {
-        username: "admin",
-        password: "admin",
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setAutoLogging(false);
-        setError("Credenciales inválidas");
-      } else {
-        router.push("/dashboard");
-      }
-    }
-    autoLogin();
-  }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -43,19 +24,6 @@ export default function LoginPage() {
     } else {
       router.push("/dashboard");
     }
-  }
-
-  if (autoLogging) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface p-4">
-        <div className="text-center">
-          <h1 className="text-headline-md text-on-surface mb-2">
-            Gestor Patrimonial
-          </h1>
-          <p className="text-body-sm text-on-surface-variant">Cargando...</p>
-        </div>
-      </div>
-    );
   }
 
   return (
