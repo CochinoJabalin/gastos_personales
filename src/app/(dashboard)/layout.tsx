@@ -7,6 +7,7 @@ import TopAppBar from "@/components/TopAppBar";
 import AuthGuard from "@/components/AuthGuard";
 import BankOnboarding from "@/components/BankOnboarding";
 import { ViewProvider } from "@/lib/ViewContext";
+import { ThemeProvider } from "@/lib/theme";
 
 export default function DashboardLayout({
   children,
@@ -41,34 +42,40 @@ export default function DashboardLayout({
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <div className="text-on-surface-variant text-body-md">Cargando...</div>
-      </div>
+      <ThemeProvider>
+        <div className="min-h-screen flex items-center justify-center bg-surface">
+          <div className="text-on-surface-variant text-body-md">Cargando...</div>
+        </div>
+      </ThemeProvider>
     );
   }
 
   if (hasBanks === false) {
     return (
-      <SessionProvider>
-        <AuthGuard>
-          <BankOnboarding onComplete={checkBanks} />
-        </AuthGuard>
-      </SessionProvider>
+      <ThemeProvider>
+        <SessionProvider>
+          <AuthGuard>
+            <BankOnboarding onComplete={checkBanks} />
+          </AuthGuard>
+        </SessionProvider>
+      </ThemeProvider>
     );
   }
 
   return (
-    <SessionProvider>
-      <AuthGuard>
-        <ViewProvider>
-          <TopAppBar />
-          <main className="md:ml-56 pt-14 pb-20 md:pb-6 min-h-screen bg-surface">
-            <div className="max-w-7xl mx-auto px-container-margin py-4 space-y-4">
-              {children}
-            </div>
-          </main>
-        </ViewProvider>
-      </AuthGuard>
-    </SessionProvider>
+    <ThemeProvider>
+      <SessionProvider>
+        <AuthGuard>
+          <ViewProvider>
+            <TopAppBar />
+            <main className="md:ml-56 pt-14 pb-20 md:pb-6 min-h-screen bg-surface">
+              <div className="max-w-7xl mx-auto px-container-margin py-4 space-y-4">
+                {children}
+              </div>
+            </main>
+          </ViewProvider>
+        </AuthGuard>
+      </SessionProvider>
+    </ThemeProvider>
   );
 }

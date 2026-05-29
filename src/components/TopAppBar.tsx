@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useTheme } from "@/lib/theme";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -19,6 +20,7 @@ const navItems = [
 export default function TopAppBar() {
   const pathname = usePathname();
   const [mobileOnlyNav, setMobileOnlyNav] = useState(false);
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     const check = () => setMobileOnlyNav(window.innerWidth < 768);
@@ -42,12 +44,23 @@ export default function TopAppBar() {
               Gestor Patrimonial
             </h1>
           </div>
-          <button
-            onClick={() => signOut()}
-            className="text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
-          >
-            Salir
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => toggle()}
+              className="text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+              title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+            >
+              <span className="material-symbols-outlined text-lg">
+                {theme === "dark" ? "light_mode" : "dark_mode"}
+              </span>
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+            >
+              Salir
+            </button>
+          </div>
         </div>
       </header>
 
