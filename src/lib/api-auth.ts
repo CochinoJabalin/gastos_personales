@@ -28,3 +28,31 @@ export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
 
   return { authenticated: false, error: "No autorizado" };
 }
+
+export function verifyCSRF(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const host = request.headers.get("host") || "";
+
+  const nexAuthUrl = process.env.NEXTAUTH_URL;
+
+  const allowedOrigins = [nexAuthUrl, `http://${host}`, `https://${host}`].filter(Boolean) as string[];
+
+  const requestOrigin = origin || (referer ? new URL(referer).origin : null);
+
+  if (!requestOrigin) return false;
+
+  return allowedOrigins.some((allowed) => {
+    try {
+      const allowedUrl = new URL(allowed);
+      const reqUrl = new URL(requestOrigin);
+      return (
+        allowedUrl.protocol === reqUrl.protocol &&
+        allowedUrl.hostname === reqUrl.hostname &&
+        allowedUrl.port === reqUrl.port
+      );
+    } catch {
+      return requestOrigin === allowed;
+    }
+  });
+}

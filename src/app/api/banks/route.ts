@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateIBAN } from "@/lib/iban";
-import { verifyAuth } from "@/lib/api-auth";
+import { verifyAuth, verifyCSRF } from "@/lib/api-auth";
+import { createBankSchema } from "@/lib/validations";
 
 async function ensureAccountsExist(banks: Awaited<ReturnType<typeof prisma.bank.findMany>>) {
   for (const bank of banks) {
@@ -82,32 +83,40 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const body = await request.json();
+  if (!verifyCSRF(request)) {
+    return NextResponse.json({ error: "CSRF validation failed" }, { status: 403 });
+  }
 
-  if (body.iban) {
-    const validation = validateIBAN(body.iban);
+  const body = await request.json();
+  const parsed = createBankSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+  }
+
+  let iban = parsed.data.iban;
+  if (iban) {
+    const validation = validateIBAN(iban);
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    body.iban = validation.normalized;
+    iban = validation.normalized;
   }
 
   const bank = await prisma.bank.create({
     data: {
-      bank_name: body.bank_name,
-      account_label: body.account_label,
-      iban: body.iban ?? null,
-      balance: body.balance ?? 0,
+      bank_name: parsed.data.bank_name,
+      account_label: parsed.data.account_label || "Cuenta Principal",
+      iban: iban ?? null,
+      balance: parsed.data.balance ?? 0,
     },
   });
 
-  // Automatically create a default account
   await prisma.account.create({
     data: {
       bank_id: bank.id,
-      account_label: body.account_label || "Cuenta Principal",
-      iban: body.iban || null,
-      balance: body.balance ?? 0,
+      account_label: parsed.data.account_label || "Cuenta Principal",
+      iban: iban || null,
+      balance: parsed.data.balance ?? 0,
       is_default: true,
       interest_rate: 0,
       interest_period: "none",

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { transferScheduler } from "@/lib/transfer-scheduler";
 import { autoTopupManager } from "@/lib/auto-topup";
 import { interestScheduler } from "@/lib/interest-scheduler";
+import { createTransferSchema } from "@/lib/validations";
 import {
   executeTransfer,
   calculateFirstMonthlyRun,
@@ -59,26 +60,18 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await request.json();
-  const {
-    from_account_id,
-    to_account_id,
-    amount,
-    concept,
-    timestamp,
-    is_scheduled,
-    frequency,
-    end_date,
-  } = body;
-
-  if (!from_account_id || !to_account_id || !amount || Number(amount) <= 0) {
-    return NextResponse.json({ error: "from_account_id, to_account_id y amount (>0) son requeridos" }, { status: 400 });
+  const parsed = createTransferSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
+
+  const { from_account_id, to_account_id, amount, concept, timestamp, is_scheduled, frequency, end_date } = parsed.data;
 
   if (from_account_id === to_account_id) {
     return NextResponse.json({ error: "La cuenta origen y destino deben ser diferentes" }, { status: 400 });
   }
 
-  const numAmount = typeof amount === "number" ? amount : parseFloat(amount);
+  const numAmount = typeof amount === "number" ? amount : parseFloat(String(amount));
   const transferAmount = Math.abs(numAmount);
 
   const fromAccount = await prisma.account.findUnique({

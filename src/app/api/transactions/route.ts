@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseSpanishNumber, applySign } from "@/lib/format";
-import { verifyAuth } from "@/lib/api-auth";
+import { verifyAuth, verifyCSRF } from "@/lib/api-auth";
 import { processRedondeo } from "@/lib/redondeo";
+import { createTransactionSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -78,55 +79,61 @@ export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.authenticated) return NextResponse.json({ error: auth.error }, { status: 401 });
 
+  if (auth.method !== "api-token" && !verifyCSRF(request)) {
+    return NextResponse.json({ error: "CSRF validation failed" }, { status: 403 });
+  }
+
   const body = await request.json();
+  const parsed = createTransactionSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+  }
+
+  const { concept, bank_id, account_id, group, type, is_recurring, recurring_period, timestamp, comentarios: rawComentarios } = parsed.data;
   const comentarios = auth.method === "api-token"
-    ? ("[API]" + (body.comentarios ? " " + body.comentarios : "")).trim()
-    : (body.comentarios || null);
+    ? ("[API]" + (rawComentarios ? " " + rawComentarios : "")).trim()
+    : (rawComentarios || null);
 
-  let amount = typeof body.amount === "number" ? body.amount : parseSpanishNumber(body.amount);
-  amount = applySign(amount, body.group);
+  let amount = typeof parsed.data.amount === "number" ? parsed.data.amount : parseSpanishNumber(String(parsed.data.amount));
+  amount = applySign(amount, group || "");
 
-  // Resolve account: use provided or find default for bank
-  let accountId = body.account_id;
-  if (!accountId) {
+  let resolvedAccountId = account_id;
+  if (!resolvedAccountId) {
     const defaultAccount = await prisma.account.findFirst({
-      where: { bank_id: body.bank_id, is_default: true },
+      where: { bank_id, is_default: true },
     });
-    if (defaultAccount) accountId = defaultAccount.id;
+    if (defaultAccount) resolvedAccountId = defaultAccount.id;
   }
 
   const transaction = await prisma.transaction.create({
     data: {
-      concept: body.concept,
+      concept,
       amount,
-      bank_id: body.bank_id,
-      account_id: accountId || null,
-      group: body.group,
-      type: body.type ? body.type.charAt(0).toUpperCase() + body.type.slice(1).toLowerCase() : body.type,
-      is_recurring: body.is_recurring || false,
-      recurring_period: body.recurring_period || null,
-      timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
+      bank_id,
+      account_id: resolvedAccountId || null,
+      group: group || "",
+      type: type ? type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() : "",
+      is_recurring: is_recurring || false,
+      recurring_period: recurring_period || null,
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
       comentarios,
     },
     include: { bank: true, account: true },
   });
 
-  // Update account balance
-  if (accountId) {
+  if (resolvedAccountId) {
     await prisma.account.update({
-      where: { id: accountId },
+      where: { id: resolvedAccountId },
       data: { balance: { increment: amount } },
     });
   }
 
-  // Update bank balance
   await prisma.bank.update({
-    where: { id: body.bank_id },
+    where: { id: bank_id },
     data: { balance: { increment: amount } },
   });
 
-  // Process redondeo for expenses on Revolut default account
-  await processRedondeo(amount, body.bank_id, accountId);
+  await processRedondeo(amount, bank_id, resolvedAccountId ?? null);
 
   return NextResponse.json(transaction, { status: 201 });
 }
